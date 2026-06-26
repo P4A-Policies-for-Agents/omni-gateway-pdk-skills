@@ -1,0 +1,5 @@
+.claude/progress.json
+.envrc
+.direnv/
+.DS_Store
+CLAUDE.md
