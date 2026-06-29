@@ -564,6 +564,7 @@ Set `vars.a2a.method` from the parsed JSON-RPC envelope on the request side **be
 | Mixing the `kind`/`type` part discriminator | accept both — legacy parts use `type`, current parts use `kind` |
 | Not threading the variant from request to response | stash `vars.a2a.variant` so the response filter picks the right error shape |
 | Adding a shared A2A crate just to get the constants | derive Pattern B inline; only adopt a shared crate that already exists in the workspace |
+| Writing `assetTypes: a2a_v1` in `gcl.yaml` | the Exchange asset-type token is **`a2av1`** (no underscore); `a2a_v1` fails publish with a 400 `assetTypes/<i> must be equal to one of the allowed values`. `a2a_v1` is the *code/spec* spelling, not the Exchange value. See pdk-schema-definition → Asset Types. |
 
 ## Red Flags
 

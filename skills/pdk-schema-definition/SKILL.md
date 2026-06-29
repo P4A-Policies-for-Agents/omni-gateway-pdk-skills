@@ -73,6 +73,34 @@ metadata:
         metadata/capabilities/injectionPoint: outbound
 ```
 
+### Asset Types (instance-type targeting)
+
+`metadata/capabilities/assetTypes` controls which Exchange instance types the
+policy can attach to. It is a comma-separated list. Exchange **validates each
+entry against a fixed allow-list at publish time** — an unknown value fails the
+publish with `statusCode: 400, message: The asset is invalid Error in metadata:
+.../capabilities/assetTypes/<i> must be equal to one of the allowed values(...)`.
+
+Allowed values (exact spelling):
+
+```
+http, mcp, a2a, a2av1, rest, wsdl, llm, grpc, websocket, sse, graphql
+```
+
+```yaml
+metadata:
+    labels:
+        title: REST to A2A Bridge
+        category: A2A
+        metadata/capabilities/assetTypes: a2a,a2av1
+```
+
+- The A2A v1 asset type is spelled **`a2av1`** — no underscore. `a2a_v1` is
+  **not** a valid value and will be rejected by Exchange (a frequent mistake,
+  since the protocol/spec and Rust identifiers use `a2a_v1`). Do not confuse the
+  Exchange asset-type token with code-level naming.
+- Omit the label entirely to attach to generic API instances only.
+
 ## Define Parameters
 
 Edit `spec.properties` in `gcl.yaml`:
