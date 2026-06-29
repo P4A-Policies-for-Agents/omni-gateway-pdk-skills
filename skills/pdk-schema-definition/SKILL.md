@@ -101,6 +101,21 @@ metadata:
   Exchange asset-type token with code-level naming.
 - Omit the label entirely to attach to generic API instances only.
 
+### Publish-time field limits
+
+Exchange enforces length limits when the asset is published (both the definition
+and, for split-model, the implementation asset). Exceeding one fails the publish
+with `statusCode: 400, message: The asset is invalid request/body/<field> must
+NOT have more than <n> characters` — long after a clean local build, so it only
+surfaces at deploy time.
+
+- **`description` ≤ 256 characters.** The asset description comes from
+  `metadata.labels.description` in `gcl.yaml` (and, for the implementation asset,
+  the `Cargo.toml` `description`). Keep it a single tight sentence or two; put the
+  long-form prose in `README.md`, not the label. A multi-line YAML block (`|` /
+  `>-`) still counts every character of the flattened string.
+- **`title` / `name`** are likewise bounded — keep titles short.
+
 ## Define Parameters
 
 Edit `spec.properties` in `gcl.yaml`:
