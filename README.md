@@ -15,15 +15,20 @@ Skills live under [`skills/`](skills/), one directory per skill (`pdk-<topic>/SK
 fall into a few groups:
 
 - **Getting started** — `pdk-create-policy`, `pdk-code-style`, `pdk-coding-best-practices`
+- **Architecture & specs** — `pdk-runtime-model` (the proxy-wasm runtime constraints behind
+  "correct" and "fast"), `pdk-policy-spec` (spec-first development; ships policy/library templates)
 - **Testing & debugging** — `pdk-unit-tests`, `pdk-integration-tests`, `pdk-test-locally`,
-  `pdk-debug-local`, `pdk-troubleshooting`
+  `pdk-debug-local`, `pdk-troubleshooting`, `pdk-benchmarks` (Criterion benches via the pdk-unit
+  harness)
 - **Policy features** — authentication, JWT, CORS, rate limiting, caching, IP filtering, schema
   and contract validation, DataWeave, HTTP calls, WebSockets, and more
 - **AI gateway** — `pdk-mcp`, `pdk-a2a`, `pdk-embedding-services`, `pdk-vector-stores`
 - **Maintenance** — `pdk-upgrade-pdk`
 
 Many `SKILL.md` files end with a **Source Ref** block recording the public docs page and snapshot
-date the content was derived from.
+date the content was derived from. A few hands-on/pattern skills (e.g. `pdk-runtime-model`,
+`pdk-benchmarks`, `pdk-distributed-cache-gossip`) aren't backed by a single docs page; those carry
+a generalized *Derived from* note instead.
 
 ## Using these skills
 
