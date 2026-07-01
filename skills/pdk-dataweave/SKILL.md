@@ -1,6 +1,6 @@
 ---
 name: pdk-dataweave
-description: Use when evaluating DataWeave expressions in PDK custom policies, including schema definition with format dataweave, creating evaluators, binding variables (vars, attributes, authentication, payload), and calling eval to get Script expression results.
+description: Use when evaluating DataWeave expressions in PDK custom policies, including schema definition with format dataweave, creating evaluators, binding variables (vars, attributes, authentication, payload), calling eval to get Script expression results, and the dw2pel runtime constraint that only top-level and object-nested dataweave compiles (array-item dataweave fails with expected PEL Expression at deploy time).
 ---
 
 # Skill: Using DataWeave Expressions
@@ -45,6 +45,33 @@ spec:
 ```
 
 **Note:** Omni Gateway doesn't support binary type results. Transform binary output to string with `dw::util::Coercions::toString(binary, encoding)`.
+
+## Runtime constraint: `dw2pel` compiles only top-level DataWeave
+
+Before a policy runs, the gateway's `dw2pel` config transform compiles each
+`format: dataweave` property into a PEL `Expression` (which deserializes into
+`pdk::script::Script`). **It recurses into top-level properties and nested
+*objects*, but NOT into array *items*.** This is verified on the live runtime
+(Flex Gateway 1.12.1) and is invisible to a local `make build`:
+
+- `format: dataweave` at top level → compiled ✅
+- `format: dataweave` nested inside a grouping **object** → compiled ✅
+- `format: dataweave` nested inside an **array item** → **NOT** compiled ❌
+
+An uncompiled selector reaches the policy as a raw `#[...]` string and fails to
+deserialize into a `Script`, so the whole policy fails to configure with HTTP 503:
+
+```
+invalid type: string "#[payload.task.id]", expected PEL Expression
+```
+
+**Rule:** never declare `format: dataweave` inside an array's `items`. If you
+need a per-item selector (e.g. a list of output fields), make the item field a
+plain `string` holding a **dotted JSON path** (`artifacts[0].parts[0].text`) and
+resolve it against the payload in Rust. For mode-specific selectors, group them
+into a config **object** instead — dataweave nested in an object compiles fine.
+See the `pdk-schema-definition` skill ("Deploy-time failures") for the schema-side
+grouping pattern.
 
 ## Evaluate DataWeave Expressions
 

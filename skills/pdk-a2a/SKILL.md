@@ -418,6 +418,36 @@ if let Some(Value::Array(parts)) = json.pointer("/task/parts")    { scan_parts(p
 if let Some(Value::String(d))    = json.pointer("/task/description") { scan_text(d, /* ... */); }
 ```
 
+### Shaping the response — the `result` IS the Task (no wrapper)
+
+When a policy shapes the A2A **response** (e.g. binding the reply as `payload`
+for a response-side DataWeave selector, or reading it in Rust), the object to
+work against is the JSON-RPC `result` **unwrapped** — it **is** the Task (or
+Message) itself. There is **no `result.task` / `result.message` wrapper**; paths
+are relative to the Task. Verified against a live A2A v1.0 agent:
+
+| Content | Path (relative to the result/Task) |
+|---|---|
+| Completed-task output text | `artifacts[0].parts[0].text` |
+| Input-required follow-up prompt | `status.message.parts[0].text` |
+| Task state | `status.state` (e.g. `TASK_STATE_COMPLETED`, `TASK_STATE_INPUT_REQUIRED`) |
+| Continuation ids | `id` (taskId), `contextId` |
+
+So a response selector reads `#[payload.artifacts[0].parts[0].text]`, **not**
+`#[payload.result.task...]`.
+
+> **In-policy `format: dataweave` response mapping is selection-only.** The
+> gateway's embedded DataWeave evaluator for policy `dataweave`-format properties
+> **selects** sub-trees (`#[payload.artifacts[0].parts[0].text]`,
+> `#[payload.status.state]`) but **rejects object/array construction**
+> (`#[{ reply: payload.x }]`, the full `%dw 2.0 … --- {…}` script form) — the
+> construction fails at eval and the policy falls back to raw passthrough. To
+> build a **custom response envelope**, either assemble it in Rust from
+> plain-path selectors (declared as `string`, not `dataweave` — see the array-item
+> constraint in `pdk-schema-definition` / `pdk-dataweave`) or chain MuleSoft's
+> native **DataWeave Body Transformation** policy after yours (`requestFlow:
+> onResponse`), which runs the full DataWeave engine.
+
 ### Error response — JSON-RPC envelope at HTTP 200
 
 ```rust

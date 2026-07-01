@@ -1,6 +1,6 @@
 ---
 name: pdk-schema-definition
-description: Use when defining configuration parameters for PDK custom policies in definition/gcl.yaml, covering metadata labels (title, description, category, interfaceScope, injectionPoint), property types (string, number, integer, boolean, array, object), required/optional/default values, sensitive data, conditional rendering with @visibleOn, enum parameters, DataWeave expression bindings, and type mapping to generated config.rs.
+description: Use when defining configuration parameters for PDK custom policies in definition/gcl.yaml, covering metadata labels (title, description, category, interfaceScope, injectionPoint, assetTypes), property types (string, number, integer, boolean, array, object), required/optional/default values, sensitive data, conditional rendering with @visibleOn, enum and uniqueItems parameters, DataWeave expression bindings, grouping mode-specific properties into config objects, type mapping to generated config.rs, and deploy-time failures verified on the live gateway (@visibleOn+dataweave 503 crash, object-literal #[{}] default rejected, dw2pel not compiling dataweave nested in array items — expected PEL Expression).
 ---
 
 # Skill: Defining a Policy Schema Definition
@@ -187,6 +187,15 @@ Restrictions:
 - Required conditional parameters must have a default value
 - Only root-level parameters support conditional rendering
 
+> **Do NOT combine `@visibleOn` with `format: dataweave` on the same property.**
+> A conditionally-rendered DataWeave field is delivered to the policy
+> **uncompiled** (as a raw `#[...]` string) and configuration fails on the live
+> gateway with HTTP 503 — a clean local build hides it. Instead, **group the
+> mode-specific DataWeave selectors into a config `object`** (see the [`object`
+> type](#object) below and [Deploy-time failures](#deploy-time-failures-runtime-verified)):
+> `format: dataweave` nested inside an object DOES compile, so an object cleanly
+> replaces the `@visibleOn` gate without the crash.
+
 ### Enumerated Parameters
 
 Limit input values with `enum`:
@@ -282,6 +291,30 @@ properties:
         default: ["READ", "WRITE"]
 ```
 
+For a **closed value set**, constrain the items with `enum` and forbid duplicates
+with `uniqueItems: true` on the array (renders as a multi-select of the allowed
+values):
+
+```yaml
+properties:
+    acceptedOutputModes:
+        type: array
+        uniqueItems: true
+        items:
+            type: string
+            enum:
+              - text/plain
+              - application/json
+              - image/png
+```
+
+> `uniqueItems` may be dropped from the generated `schema.json` but **survives
+> into the `gcl.yaml` the gateway consumes** — the constraint is still enforced.
+> **Do not put `format: dataweave` inside `items`** — the config transform does
+> not compile it and the policy fails to load (see
+> [Deploy-time failures](#deploy-time-failures-runtime-verified) and the
+> `pdk-dataweave` skill). Use a plain-path string per item and resolve it in Rust.
+
 ### object
 
 Must specify `properties.type` for each element:
@@ -299,6 +332,47 @@ properties:
         - id
         - name
       default: {"id": "1", "name": "John Doe"}
+```
+
+**Grouping objects — the preferred alternative to `@visibleOn`.** When a set of
+properties applies only in one mode, group them into an object rather than
+gating each with `@visibleOn` (which crashes when combined with
+`format: dataweave` — see [Conditional Parameters](#conditional-parameters)).
+A grouping object cleanly scopes mode-specific settings, and — verified on the
+live runtime — **`format: dataweave` nested inside an object DOES forward and
+compile correctly** (unlike inside array `items`, which does not):
+
+```yaml
+properties:
+    continuationMode:
+        type: string
+        enum: [none, cache, explicit]
+        default: none
+    cacheConfig:                      # applies only when continuationMode = cache
+        type: object
+        properties:
+            contextKeySelector:
+                type: string
+                format: dataweave     # compiles fine nested in an object
+            conversationTtlSeconds:
+                type: integer
+                default: 3600
+    explicitConfig:                   # applies only when continuationMode = explicit
+        type: object
+        properties:
+            taskIdSelector:
+                type: string
+                format: dataweave
+```
+
+Rust side: model each group as its own `#[derive(Deserialize, Clone, Debug,
+Default)]` struct wrapped in `Option<T>`, then flatten into your flat runtime
+config with `.unwrap_or_default()` so the request hot path stays unchanged:
+
+```rust
+let cache = config.cache_config.unwrap_or_default();
+// ...
+context_key_selector: cache.context_key_selector,
 ```
 
 ## DataWeave Expression Bindings
@@ -323,6 +397,14 @@ tokenExtractor:
 - `vars`: Variable names available to the policy. Default: `[]`. Undefined vars evaluate to `null`.
 
 If user expressions contain bindings not defined in the schema, configuration fails.
+
+> **`default` for an object-returning DataWeave selector must be `#[null]`, not
+> `#[{}]`.** An object-literal default fails at eval with *"Object expressions
+> are not yet supported"* and **silently invalidates the PolicyBinding** —
+> degrading to raw passthrough with no hard error (worse than a crash, because it
+> looks like it worked). Default to `#[null]` and treat a null/non-object result
+> as "nothing supplied" in Rust. See
+> [Deploy-time failures](#deploy-time-failures-runtime-verified).
 
 ## Type Mapping: gcl.yaml to config.rs
 
@@ -395,6 +477,43 @@ async fn configure(launcher: Launcher, Configuration(configuration): Configurati
     }
 }
 ```
+
+## Deploy-time failures (runtime-verified)
+
+These constraints are **not caught by a local `make build`**. The schema
+compiles, the wasm builds, tests pass — then the policy 503s or silently
+degrades when the gateway *configures* it. Each was verified end-to-end against a
+live Flex Gateway 1.12.1. Design the schema to avoid them up front.
+
+| # | Symptom | Cause | Fix |
+|---|---|---|---|
+| 1 | Policy fails to load, **HTTP 503** at configure time | `@visibleOn` combined with `format: dataweave` on the same property — the field reaches the policy **uncompiled** | Drop `@visibleOn`; **group the selectors into a config `object`** (dataweave nested in an object compiles) |
+| 2 | Policy loads but **silently ignores the property** (raw passthrough, no error) | `default: "#[{}]"` on an object-returning selector — *"Object expressions are not yet supported"* invalidates the PolicyBinding | Use `default: "#[null]"`; treat null/non-object as "nothing supplied" in Rust |
+| 3 | Policy fails to load, **HTTP 503**, `invalid type: string "#[...]", expected PEL Expression` | `format: dataweave` declared inside array `items` — the config transform (`dw2pel`) compiles only **top-level** dataweave, not array-item dataweave | Make the per-item `selector` a **plain string** and resolve the path in Rust |
+
+**The object-vs-array asymmetry (the rule that ties #1 and #3 together).** The
+gateway's `dw2pel` config transform compiles `format: dataweave` properties into
+PEL expressions before the policy sees them, **but it only recurses into
+top-level properties and nested *objects* — not into array *items*.** So:
+
+- `format: dataweave` at the top level → compiles ✅
+- `format: dataweave` nested inside a grouping **object** → compiles ✅ (this is
+  why object grouping is the safe replacement for `@visibleOn`)
+- `format: dataweave` nested inside an **array item** → NOT compiled ❌ → reaches
+  the policy as a raw string → fails to deserialize into `pdk::script::Script`
+  (`expected PEL Expression`) → whole policy 503s
+
+For per-array-item selection, declare the item field as a plain `string`
+(a dotted JSON path, e.g. `artifacts[0].parts[0].text`) and resolve it against
+the payload in Rust. See the `pdk-dataweave` skill for the same rule from the
+selector-author's side.
+
+**Grouping objects replace `@visibleOn` (finding #1 in practice).** Rather than
+gating mode-specific DataWeave fields with `@visibleOn`, put them in a per-mode
+object (`cacheConfig`, `mappingConfig`, …) as shown under the
+[`object` type](#object). This removes the `@visibleOn`+dataweave crash, reads
+better in API Manager, and keeps the Rust hot path flat (optional group structs
+flattened via `.unwrap_or_default()`).
 
 ## Documentation Reference
 
