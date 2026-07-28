@@ -432,13 +432,16 @@ definition_asset_id = { name = "<policy-name>", version = "1.0.0" }
 implementation_asset_id = "<policy-name>-flex"
 
 [dependencies]
-pdk = { version = "1.9.0" }
+# PDK 1.9.1+ gates the JWT and XML Validator libraries behind Cargo features
+# (default = ["jwt", "xml_validator"], both on). To shrink WASM or use the
+# FIPS jwt-fips backend, see the pdk-cargo-features skill.
+pdk = { version = "1.9.2" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 anyhow = "1.0"
 
 [dev-dependencies]
-pdk-test = { version = "1.9.0" }
+pdk-test = { version = "1.9.2" }
 httpmock = "0.6"
 reqwest = "0.11"
 
@@ -466,4 +469,4 @@ strip = "debuginfo"
 - Policy templates/examples: https://docs.mulesoft.com/pdk/latest/policies-pdk-policy-templates
 - Developing custom policies: https://docs.mulesoft.com/pdk/latest/policies-pdk-develop-custom-policies
 - PDK crate: https://crates.io/crates/pdk
-- PDK API docs: https://docs.rs/pdk/1.9.0/pdk/
+- PDK API docs: https://docs.rs/pdk/1.9.2/pdk/

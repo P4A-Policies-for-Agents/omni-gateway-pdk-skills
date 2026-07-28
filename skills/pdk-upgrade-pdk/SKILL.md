@@ -1,6 +1,6 @@
 ---
 name: pdk-upgrade-pdk
-description: Use when upgrading PDK components including Anypoint CLI PDK plugin, PDK Rust libraries (pdk, pdk-test, pdk-unit), Anypoint Cargo plugin, policy Rust version, and WASI target migration from wasm32-wasi to wasm32-wasip1, with version-specific guidance for 1.8.0 resolver and metadata struct changes, and 1.9.0 FIPS flag, WebSocket support, and pdk-unit chunk size changes.
+description: Use when upgrading PDK components including Anypoint CLI PDK plugin, PDK Rust libraries (pdk, pdk-test, pdk-unit), Anypoint Cargo plugin, policy Rust version, and WASI target migration from wasm32-wasi to wasm32-wasip1, with version-specific guidance for 1.8.0 resolver and metadata struct changes, 1.9.0 FIPS flag/WebSocket/pdk-unit chunk size, and 1.9.1 JWT+XML Cargo feature gating and jwt-fips.
 ---
 
 # Skill: Upgrading PDK
@@ -40,9 +40,23 @@ anypoint-cli-v4 plugins:uninstall anypoint-cli-pdk-plugin
 anypoint-cli-v4 plugins:install anypoint-pdk-plugin
 ```
 
+## Upgrading to 1.9.2 (current stable)
+
+PDK 1.9.2 (released July 21 2026) is the current stable release. Upgrade to `1.9.2` for the `pdk`, `pdk-test`, and `pdk-unit` libraries, and for the `cargo-anypoint` plugin. Keep all four in lockstep.
+
+- **1.9.2** — Testing/development dependency updates for security and unmaintained-crate advisories. These affect **only** the PDK testing framework and are **not** included in the compiled policy WASM. No code changes required to upgrade.
+
+## Upgrading to 1.9.1: What's New
+
+PDK 1.9.1 (released July 15 2026) gates optional libraries behind Cargo features and adds a FIPS JWT backend:
+
+- **JWT and XML Validator are now Cargo features:** Both remain enabled by default (`default = ["jwt", "xml_validator"]`), so an in-place version bump changes nothing. To shrink compiled WASM, disable the ones you don't use — see the `pdk-cargo-features` skill for syntax.
+- **`jwt-fips` feature:** New FIPS-compliant JWT backend that delegates cryptography to the proxy-wasm host instead of bundling native RustCrypto. Mutually exclusive with the default `jwt` backend, so it requires `default-features = false`. See `pdk-cargo-features` and `pdk-jwt`.
+- Third-party dependency updates for reported security vulnerabilities.
+
 ## Upgrading to 1.9.0: What's New
 
-PDK 1.9.0 (released June 18 2026) is the current stable release. Upgrade to `1.9.0` for the `pdk`, `pdk-test`, and `pdk-unit` libraries, and for the `cargo-anypoint` plugin. Do not adopt the `1.9.1-alpha.2` prerelease.
+PDK 1.9.0 (released June 18 2026) added FIPS support, WebSockets, and pdk-unit changes:
 
 Notable changes that may affect an upgrade:
 
@@ -112,10 +126,10 @@ Update the `pdk` dependency and `pdk-test` dev-dependency versions in `Cargo.tom
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.0" }
+pdk = { version = "1.9.2" }
 
 [dev-dependencies]
-pdk-test = { version = "1.9.0" }
+pdk-test = { version = "1.9.2" }
 ```
 
 **Note:** In versions earlier than 1.6.0, dependencies included `registry = "anypoint"`. When upgrading from pre-1.6.0, remove the `registry = "anypoint"` field since PDK libraries moved to [crates.io](https://crates.io/crates/pdk) in 1.6.0.
@@ -127,7 +141,7 @@ pdk-test = { version = "1.9.0" }
 
 ```makefile
 install-cargo-anypoint:
-	cargo install cargo-anypoint@1.9.0
+	cargo install cargo-anypoint@1.9.2
 ```
 
 3. Run:
@@ -194,4 +208,5 @@ setup: install-cargo-anypoint ## Setup all required tools to build
 - **Repo:** `mulesoft/docs-gateway` @ `f89b114`
 - **Branch:** `latest`
 - **File:** `pdk/1.9/modules/ROOT/pages/policies-pdk-upgrade-pdk.adoc`
-- **Snapshot:** 2026-06-23
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1 + 1.9.2)
+- **Snapshot:** 2026-07-28

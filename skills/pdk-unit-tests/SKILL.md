@@ -49,10 +49,10 @@ proxy-wasm = "0.2.5"
 
 # host-side stub replaces proxy-wasm for native test builds; NOT for wasm32
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pdk-proxy-wasm-stub = "1.9.0"
+pdk-proxy-wasm-stub = "1.9.2"
 
 [dev-dependencies]
-pdk-unit = { version = "1.9.0", default-features = false, features = ["proxy-wasm-rust-sdk"] }
+pdk-unit = { version = "1.9.2", default-features = false, features = ["proxy-wasm-rust-sdk"] }
 ```
 
 Import the right crate per target in the policy code, and build tests against the stub:
