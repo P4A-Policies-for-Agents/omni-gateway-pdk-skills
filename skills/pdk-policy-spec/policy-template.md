@@ -7,6 +7,11 @@ descriptive paragraph that someone can read to understand the policy's purpose a
 **Category**: <your project's taxonomy value — e.g. by protocol or concern>
 -->
 
+<!-- Optional. Must match the gcl.yaml `metadata/capabilities/assetTypes` tokens (Exchange spelling:
+a2av1, mcp, llm, http…). Drop if the policy attaches to generic API instances only.
+**Applies to**: <e.g. A2A, MCP>
+-->
+
 ## Configuration
 
 <One `### <propertyName>` subsection per top-level property in the policy's definition. Use the
@@ -48,6 +53,25 @@ chain (`Flow::Break`) vs. lets it continue (`Flow::Continue`).>
 model: log a warning and continue. Document any stricter, justified override here. Do NOT discuss
 the authentication object here — that's a filter-chain ordering concern; mention it under Edge
 cases if relevant.>
+
+<!-- Optional. Include ONLY if the policy runs at the outbound injection point (transcoding,
+credential injection, upstream authentication). Delete otherwise.
+### Injection point
+
+`outbound` — runs after inbound authentication and before the upstream backend call. The
+definition declares `metadata/capabilities/injectionPoint: outbound`.
+-->
+
+<!-- Optional. Include ONLY if the policy authenticates a caller (verifies a credential/token and
+establishes who the caller is). Delete otherwise.
+### Principal propagation
+
+On a positive result — and only then — the policy publishes the identity into the PDK
+`AuthenticationData`. It sets `principal` to <normalization rule> and preserves any fields an
+upstream authentication policy already set (`client_id`, `client_name`, `properties`) by reading the
+object back and overwriting only what it owns. A rejected request returns before the principal is
+touched, so downstream policies see `None`.
+-->
 
 ### Edge cases
 

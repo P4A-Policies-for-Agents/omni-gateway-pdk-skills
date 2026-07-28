@@ -54,6 +54,13 @@ policies (e.g. by protocol or concern). If you use one, the value must match wha
 project's policy definitions use — it's a project convention, not a fixed PDK requirement. Omit it
 if your project doesn't categorize policies.
 
+An optional **Applies to** line states which Exchange instance types the policy targets (e.g.
+`Applies to: A2A, MCP`). If present it must match the `metadata/capabilities/assetTypes` tokens in
+the policy's `gcl.yaml` — use the Exchange-facing spelling (`a2av1`, not `a2a_v1`; `mcp`; `llm`;
+`http`; see [[pdk-schema-definition]] for the exact allow-list and the `a2av1`/`a2a_v1` trap). The
+schema is authoritative; this line documents intent and must not drift from it. Omit for a policy
+that attaches to generic API instances only.
+
 ### Configuration
 One `### <propertyName>` subsection per top-level property in the policy's definition
 ([[pdk-schema-definition]]). Each gives: type, required/optional, default; what it does in a
@@ -71,6 +78,16 @@ The observable contract — usually the largest and most-read section:
   degraded behavior per the runtime model ([[pdk-runtime-model]]): default is warn-and-continue;
   any stricter mode is an explicit, justified override. The authentication object is a filter-chain
   concern, not a local-mode one — note its absence under Edge cases if relevant, not here.
+- **Injection point** — state it when the policy runs `outbound` (transcoding, credential
+  injection, upstream authentication): it runs after inbound auth and before the backend call, and
+  its definition must carry `metadata/capabilities/injectionPoint: outbound`
+  ([[pdk-schema-definition]]). Inbound-verifying authentication policies use the default and need no
+  label — say so only if it isn't obvious.
+- **Principal propagation** (authentication policies only) — a `### Principal propagation`
+  subsection: which `AuthenticationData` fields the policy sets on success (`principal`, and
+  optionally `client_id`/`client_name`/`properties`), that it preserves fields set by upstream
+  policies, and that a rejected request leaves the principal unset. See the preserve-existing
+  pattern in [[pdk-authentication]]. Omit for non-authenticating policies.
 - **Edge cases** — as bullets, not a separate top-level section.
 - **Error responses** — conditions with their status codes (and protocol error codes, e.g.
   JSON-RPC, where applicable).

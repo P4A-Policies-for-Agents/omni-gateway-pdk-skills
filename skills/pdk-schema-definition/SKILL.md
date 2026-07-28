@@ -426,6 +426,42 @@ Non-required parameters are wrapped in `Option<T>` in Rust. Always validate befo
 if let Some(val) = my_value { /* use val */ }
 ```
 
+## Two-phase config parsing
+
+Parse config in two phases: catch structural errors (empty input, malformed JSON) before
+deserializing, then check domain invariants in a separate `validate()` pass. Implement
+`TryFrom<&[u8]>` with a dedicated error enum that includes an `EmptyConfig` variant — an empty
+byte slice is a distinct, expected failure (e.g. a policy attached with no configuration) and
+deserves its own message rather than an opaque serde error.
+
+```rust
+#[derive(thiserror::Error, Debug)]
+pub enum ConfigError {
+    #[error("Configuration was empty")]
+    EmptyConfig,
+    #[error("Configuration could not be parsed: {0}")]
+    Parsing(#[from] serde_json::Error),
+    #[error("Invalid configuration: {0}")]
+    Invalid(String),
+}
+
+impl TryFrom<&[u8]> for MyPolicyConfig {
+    type Error = ConfigError;
+
+    fn try_from(value: &[u8]) -> Result<Self, ConfigError> {
+        if value.is_empty() {
+            return Err(ConfigError::EmptyConfig);       // phase 1: structural guard
+        }
+        let config: MyPolicyConfig = serde_json::from_slice(value)?; // phase 2: parse
+        config.validate()?;                             // phase 3: domain invariants
+        Ok(config)
+    }
+}
+```
+
+Keep `validate()` separate — `init` (see [[pdk-http-call]]) often deserializes without validating,
+while `configure` runs the full check. Never `panic!`/`unwrap` in either path ([[pdk-runtime-model]]).
+
 ## Propagate Changes to Rust
 
 After modifying `gcl.yaml`, run:

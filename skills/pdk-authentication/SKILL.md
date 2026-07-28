@@ -35,6 +35,29 @@ pub struct AuthenticationData {
 }
 ```
 
+## Preserve existing authentication data
+
+Multiple authentication policies may run in the same filter chain — e.g. one sets
+`client_id`/`client_name`, a later one establishes the `principal`. When your policy publishes a
+result, **read back the existing `AuthenticationData`, overwrite only the field(s) you own, and
+write the merged object back.** Rebuilding the struct from scratch drops whatever an upstream
+policy already set.
+
+```rust
+// Correct — preserves upstream client_id/client_name/properties, sets only principal.
+fn propagate_principal(authentication: &Authentication, principal: String) {
+    let mut auth_data = authentication.authentication().unwrap_or_default();
+    auth_data.principal = Some(principal);
+    authentication.set_authentication(Some(&auth_data));
+}
+```
+
+Two rules:
+- **Write on the success path only.** A rejected request must not carry a principal — return
+  `Flow::Break` before touching `AuthenticationData`, so downstream policies see `None`.
+- **Absence of the authentication object is a chain-ordering concern, not a local-mode one** — it
+  is set by an upstream policy in the filter chain, never by the control plane ([[pdk-runtime-model]]).
+
 ## Example
 
 Read authentication data and modify client_id/client_name from custom headers:

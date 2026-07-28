@@ -36,6 +36,20 @@ arbitrary outbound network, no threads.** All I/O must be async via PDK's runtim
 - **No `panic!` on the hot path** — a panic crashes the filter instance. Never `unwrap()` /
   `expect()` on anything that can fail at runtime.
 
+#### Panic-safety checklist
+A panic in a WASM filter aborts the request and can disrupt traffic for every caller. Treat these
+as banned in production code (test code is exempt):
+
+| Banned | Sanctioned replacement |
+|--------|------------------------|
+| `.unwrap()` / `.expect(…)` | `?` after `ok_or` / `ok_or_else` / `map_err`; `match` / `if let`; or a safe fallback `.unwrap_or(…)` / `.unwrap_or_else(…)` / `.unwrap_or_default()` |
+| `panic!` / `unreachable!` / `todo!` / `unimplemented!` | Return a typed error — even for a state you believe impossible, so an unexpected input degrades instead of crashing |
+| `assert!` / `assert_eq!` / `assert_ne!` / `debug_assert*!` | Validate with a conditional that returns a typed error (`debug_assert*!` also compiles out in release — it validates nothing in a shipped policy) |
+| Slice/index panics — `v[i]`, `Vec::remove`, `s[a..b]` | `.get(i)` / `.get(a..b)` and handle the `None` |
+
+`.unwrap_or*` are non-panicking and are the recommended fix, not violations. `.expect_err(…)`
+is test-only. This is the *why*; for the error-type patterns see [[pdk-coding-best-practices]].
+
 ### Latency is a product constraint
 Every policy sits on the request path, and many of them chain. Synchronous work above a few
 milliseconds on the hot path needs explicit justification in the spec. Budget for the **whole
@@ -85,6 +99,12 @@ the request continue (`Flow::Continue`).** The policy must not `panic!`, must no
 `Option`/`Result` derived from context, and must not return an opaque 500. If the spec defines a
 stricter failure mode for a specific missing context, document that override in the spec's Behavior
 section — but the implementation still must not panic.
+
+**Warn only about context you actually consume.** The warn-and-continue default applies to context
+the policy *reads for request-path logic*. A policy driven entirely by static `gcl.yaml` config that
+never touches `environment`, `api`, `tiers`, or `identityManagement` must NOT warn about their
+absence — that's noise on every local-mode request. Log at `debug!` at most, or not at all. Gate the
+"missing context" warning on whether the spec says the policy needs that field.
 
 Note: the **authentication object is NOT a local-mode concern.** It's set by an upstream
 authentication policy in the filter chain, not by the control plane. Its absence is a

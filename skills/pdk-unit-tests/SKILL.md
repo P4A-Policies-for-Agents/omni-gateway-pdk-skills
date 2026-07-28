@@ -116,6 +116,32 @@ let mut tester = UnitTestBuilder::default()
    make implementations-unit-test
    ```
 
+## Shared error-response assertion helper
+
+Policies that reject requests tend to share one error shape: a status code, a `WWW-Authenticate`
+header on 401, a JSON `Content-Type`, a JSON error body, and a recorded policy violation. Every
+rejection test re-checks all five. Extract one helper in `src/tests/common.rs` and call it
+everywhere — it keeps the error contract in one place and makes a shape change a one-line edit.
+
+```rust
+use pdk::policy_violation::PolicyViolationType;
+
+pub fn assert_error_response(response: &UnitHttpResponse, status: u32, message: &str) {
+    assert_eq!(response.status_code(), status);
+    if status == 401 {
+        assert_eq!(response.header("WWW-Authenticate").unwrap(), WWW_AUTHENTICATE_VALUE);
+    }
+    assert_eq!(response.header("Content-Type").unwrap(), "application/json; charset=UTF-8");
+    assert_eq!(
+        std::str::from_utf8(response.body()).unwrap(),
+        json!({ "error": message }).to_string()
+    );
+    // Reject paths must also record a monitoring violation ([[pdk-policy-violations]]).
+    let violation = response.violation().expect("violation must be set");
+    assert_eq!(violation.get_policy_violation(), PolicyViolationType::Violation);
+}
+```
+
 ## Basic Request and Response Test
 
 Build a `UnitTest` with `UnitTestBuilder`, send a `UnitHttpRequest`, and assert on the returned `UnitHttpResponse`:
@@ -210,6 +236,45 @@ fn test_policy_calls_external_service() {
 
     assert_eq!(response.status_code(), 200);
 }
+```
+
+### Validating mock — assert the request shape
+
+A mock that only returns a canned response never catches a malformed *outbound* call — a wrong
+header, unencoded body, missing form field ship to production. Make the mock **assert the request
+before responding**, so a request-building bug fails at test time instead of at deploy time.
+
+```rust
+.with_http_upstream_from_authority("auth.example.com", |req| {
+    // Assert the wire contract the upstream expects.
+    assert_eq!(req.header("authorization").unwrap(), "Basic dGVzdA==");
+    assert!(req.header("content-type").unwrap().starts_with("application/x-www-form-urlencoded"));
+    let body = std::str::from_utf8(req.body()).unwrap();
+    assert!(body.contains("token="));
+    UnitHttpResponse::new(200).with_body(r#"{"active":true}"#).into()
+})
+```
+
+### Invocation counter — prove caching / retry
+
+To assert a policy caches (or retries) instead of calling the upstream every time, count
+invocations with a `Cell<u32>` captured by the closure (single-threaded test runtime, so no
+`Mutex` needed) and vary the response by count:
+
+```rust
+let calls = std::rc::Rc::new(std::cell::Cell::new(0u32));
+let seen = calls.clone();
+let tester = UnitTestBuilder::default()
+    .with_config(cfg)
+    .with_http_upstream_from_authority("auth.example.com", move |_req| {
+        let n = seen.get();
+        seen.set(n + 1);
+        UnitHttpResponse::new(200).with_body(r#"{"active":true}"#).into()
+    })
+    .with_entrypoint(crate::configure);
+
+// ... drive two requests that should hit the cache on the second ...
+assert_eq!(calls.get(), 1, "second request must be served from cache");
 ```
 
 ## Mock a gRPC Upstream
