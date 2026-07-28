@@ -72,6 +72,14 @@ let result = validator
     .map_err(PolicyError::Introspection)?;
 ```
 
+## Register the Introspection Service at Init
+
+The introspection endpoint is an outbound service, so it must be registered at Flex `init`
+(`abi.service_create`) exactly like any other HTTP call, and `init` must deserialize the **same**
+config type as `configure` so the registered cluster matches what the validator builds at runtime.
+Skip this and token validation fails to route on a real gateway. See the init ↔ configure service
+contract in [[pdk-http-call]].
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-token-introspection

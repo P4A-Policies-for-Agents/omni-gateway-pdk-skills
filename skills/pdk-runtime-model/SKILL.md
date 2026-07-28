@@ -62,6 +62,13 @@ A policy MUST load and respond to requests from t=0 even if the control plane is
 error), but it cannot *fail to start*. The degraded-state behavior is spec content
 ([[pdk-policy-spec]]), not an accident of the code.
 
+Startup is also where **outbound services get registered**. The runtime uses a split model: a
+`#[pdk::hl::entrypoint_flex] init` function runs once per replica and must call
+`abi.service_create(...)` for every service the policy will call; `configure` and the filters run
+later and only *use* the registered cluster. `init` and `configure` must derive the `Service` from
+the same config field, or the runtime request routes to a cluster name that was never registered —
+a silent, deploy-time-only routing failure. See [[pdk-http-call]].
+
 ### Local-mode resilience — never panic on missing context
 Policies MUST work in **local mode**, where the gateway runs without a control-plane connection. In
 local mode only `PolicyMetadata` (policy name, namespace, filter name) and `FlexMetadata` (gateway

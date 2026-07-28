@@ -1,6 +1,6 @@
 ---
 name: pdk-http-call
-description: Use when making HTTP calls from PDK custom policies to external services, including defining service parameters with format service in gcl.yaml, injecting HttpClient into entrypoint or wrapped functions, and performing requests with path, headers, body, and HTTP methods.
+description: Use when making HTTP calls from PDK custom policies to external services, including defining service parameters with format service in gcl.yaml, registering the service at Flex init so the request routes at runtime, injecting HttpClient into entrypoint or wrapped functions, and performing requests with path, headers, body, and HTTP methods.
 ---
 
 # Skill: Performing an HTTP Call
@@ -21,6 +21,57 @@ properties:
   endpointPath:
     type: string
 ```
+
+## Register the Service at Flex Init (required for real gateways)
+
+Defining a `format: service` parameter is **not enough** to route a request. On a real
+(non-local) Omni/Flex Gateway the runtime uses a split model: a `#[pdk::hl::entrypoint_flex]`
+`init` function runs once per replica at startup and must **register** every service it will
+call via `abi.service_create(...)`. The `#[entrypoint] configure` function and the request
+filter run later and only *use* the already-registered cluster. Omit the registration and the
+`client.request(&config.my_service)` call has no cluster to route to — it fails at runtime even
+though the policy built and passed unit tests.
+
+```rust
+// Runs once at startup, before any request. Registers the outbound cluster.
+#[pdk::hl::entrypoint_flex]
+fn init(abi: &dyn pdk::flex_abi::api::FlexAbi) -> Result<(), anyhow::Error> {
+    // Deserialize the SAME config type `configure` uses (see rule below).
+    let config: Config = serde_json::from_slice(abi.get_configuration()).map_err(|err| {
+        anyhow::anyhow!(
+            "Failed to parse configuration '{}'. Cause: {}",
+            String::from_utf8_lossy(abi.get_configuration()),
+            err
+        )
+    })?;
+
+    // Register only when a URL was actually provided; an empty authority means "unset".
+    if !config.my_service.uri().authority().is_empty() {
+        abi.service_create(config.my_service)?;
+    }
+
+    abi.setup()?; // keep this — it wires the standard filter setup the scaffold expects
+    Ok(())
+}
+```
+
+**The init ↔ configure contract.** `init` and `configure` MUST derive the `Service` from the
+**same config type and the same field**. The cluster name is derived purely from the URL
+**authority** (host\[:port]); if `init` registers a cluster from one URL shape and `configure`
+builds its request `Service` from another (a different field, a stripped path, a dropped explicit
+port), the runtime request targets a cluster name that was never registered → silent routing
+failure. Practical rules:
+
+- Deserialize the service with `#[serde(deserialize_with = "pdk::serde::deserialize_service")]`
+  into a `pdk::hl::Service` field — do not re-parse a raw URL string differently in each entrypoint.
+- **Preserve the full URI** — explicit port (even `:80`/`:443`) and path. The authority selects
+  the cluster; the path is read back for the request and by libraries that inspect the full URL
+  (e.g. IdP-endpoint detection). Stripping either breaks routing or downstream logic.
+- `init` typically registers **without** semantic validation (it only needs the service);
+  `configure` runs full `validate()` after deserialization.
+
+This registration step is not covered by the public docs — it surfaces only at deploy time, so
+treat it as mandatory whenever a policy makes an outbound call.
 
 ## Make HTTP Requests
 
