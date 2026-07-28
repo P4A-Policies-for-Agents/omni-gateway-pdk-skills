@@ -9,6 +9,10 @@ description: Use when validating XML payloads with PDK's XmlValidatorBuilder to 
 
 This skill covers how to use PDK's XML Validator library to enforce configurable limits on XML payloads, such as maximum element depth, attribute counts, child counts, and text/attribute/comment lengths. The library validates by streaming the incoming XML body.
 
+## Cargo Feature (PDK 1.9.1+)
+
+The XML Validator library is gated behind the `xml_validator` Cargo feature, **enabled by default**. Policies that don't validate XML can disable it to shrink compiled WASM — see the `pdk-cargo-features` skill. If you disable it, the import below won't resolve.
+
 ## Import
 
 ```rust
@@ -90,5 +94,5 @@ If `validate_stream` returns `Err`, reject the payload. The XML may be malformed
 
 - **Repo:** `mulesoft/docs-gateway` @ `f89b114`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-xml-validator.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.9/modules/ROOT/pages/policies-pdk-configure-features-xml-validator.adoc`
+- **Snapshot:** 2026-07-28 (added 1.9.1 `xml_validator` Cargo feature)

@@ -13,7 +13,7 @@ definition_asset_id = "stop-iteration"
 implementation_asset_id = "stop-iteration-flex"
 
 [dependencies]
-pdk = { version = "1.9.0", features = ["enable_stop_iteration"] }
+pdk = { version = "1.9.2", features = ["enable_stop_iteration"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 anyhow = "1.0"

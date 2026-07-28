@@ -9,6 +9,10 @@ description: Use when validating JWT signatures with SignatureValidator, extract
 
 This skill covers how to use the PDK JWT library to validate JWT signatures, extract and validate claims, create tokens, and propagate claims to headers.
 
+## Cargo Feature (PDK 1.9.1+)
+
+The JWT library is gated behind the `jwt` Cargo feature, **enabled by default**. A FIPS-compliant alternative, `jwt-fips`, delegates cryptography to the proxy-wasm host and is mutually exclusive with `jwt` (requires `default-features = false`). The API in this skill is identical under both backends. To enable/disable these features or trim WASM size, see the `pdk-cargo-features` skill.
+
 ## Extract a JWT Token
 
 Use `TokenProvider::bearer` to extract JWT tokens from the `Authorization: Bearer <token>` header:
@@ -157,5 +161,5 @@ properties:
 
 - **Repo:** `mulesoft/docs-gateway` @ `f89b114`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.9/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
+- **Snapshot:** 2026-07-28 (added 1.9.1 `jwt`/`jwt-fips` Cargo features)

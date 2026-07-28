@@ -13,12 +13,12 @@ implementation_asset_id = "websocket-flex"
 
 [dependencies]
 # WebSocket support is open beta — requires the "ll" and "experimental_websocket" features.
-pdk = { version = "1.9.0", features = ["ll", "experimental_websocket"] }
+pdk = { version = "1.9.2", features = ["ll", "experimental_websocket"] }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
-pdk-unit = { version = "1.9.0" }
+pdk-unit = { version = "1.9.2" }
 
 [lib]
 crate-type = ["cdylib"]

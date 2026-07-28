@@ -18,7 +18,7 @@ manipulation also needs the low-level `ll` feature:
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.0", features = ["ll", "experimental_websocket"] }
+pdk = { version = "1.9.2", features = ["ll", "experimental_websocket"] }
 ```
 
 ## Configure WebSocket Handlers

@@ -147,7 +147,7 @@ Use the `enable_stop_iteration` feature to simultaneously read and modify header
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.0", features = ["enable_stop_iteration"] }
+pdk = { version = "1.9.2", features = ["enable_stop_iteration"] }
 ```
 
 ### Read and Write Headers and Body Together

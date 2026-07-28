@@ -399,14 +399,14 @@ Policies in this repo are **standalone crates** — pin dependency versions dire
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.0", features = ["enable_stop_iteration"] }
+pdk = { version = "1.9.2", features = ["enable_stop_iteration"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc", "raw_value"] }
 anyhow = "1.0"
 
 [dev-dependencies]
-pdk-test = { version = "1.9.0" }
-pdk-unit = { version = "1.9.0" }
+pdk-test = { version = "1.9.2" }
+pdk-unit = { version = "1.9.2" }
 httpmock = "0.6"
 reqwest = { version = "0.11", features = ["json"] }
 ```

@@ -113,7 +113,7 @@ Enables body stream writing (`write_chunk` on `BodyStreamState`) and chunk const
 **Enabling:**
 
 ```toml
-pdk = { version = "1.9.0", features = ["experimental_metrics"] }
+pdk = { version = "1.9.2", features = ["experimental_metrics"] }
 ```
 
 **Core types and traits:**
