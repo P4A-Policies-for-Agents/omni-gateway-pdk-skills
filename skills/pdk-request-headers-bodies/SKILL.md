@@ -1,6 +1,6 @@
 ---
 name: pdk-request-headers-bodies
-description: Use when reading or writing request/response headers and bodies in PDK policies, covering the event flow approach (HeadersHandler, BodyHandler, streaming bodies for >1MB payloads, WebSocket frame bodies) and the stop iteration approach (enable_stop_iteration feature for simultaneous header-body access via into_headers_body_state).
+description: Use when reading or writing request/response headers and bodies in PDK policies, covering the event flow approach (HeadersHandler, BodyHandler, streaming bodies for >1MB payloads, WebSocket frame bodies) and the stop iteration approach (enable_stop_iteration feature for simultaneous header-body access via into_headers_body_state) — including when a response filter hangs or returns an Envoy 504 with the combined headers+body state and must fall back to the split flow.
 ---
 
 # Skill: Reading and Writing Request Headers and Bodies
@@ -190,6 +190,46 @@ async fn request_filter(request_state: RequestState) -> Flow<()> {
     Flow::Continue(())
 }
 ```
+
+### Caveat: the combined state can hang the response leg
+
+`into_headers_body_state()` is convenient for a `response_filter` that must decide
+what to write to the body based on a header (or vice versa) — but on some runtime
+versions the combined headers+body state **hangs on the response leg**, so every
+response-transforming request eventually returns an Envoy **504** (gateway timeout)
+instead of the transformed response. This was observed on **Flex/Omni Gateway
+1.12.1** and reproduced across multiple response-shaping policies; the request leg
+was not affected. Treat it as version-dependent, not universal — but assume it until
+you have verified the combined state works on the response leg for your target
+runtime.
+
+**Workaround — use the split event-flow states on the response path.** Do the header
+work first, transition to the body state, then read/write the body:
+
+```rust
+async fn response_filter(response_state: ResponseState, /* … */) {
+    // --- HEADERS PHASE ---
+    let headers_state = response_state.into_headers_state().await;
+    // Remove content-length so the gateway recomputes it from the new body.
+    // Remove content-encoding too if you may replace a compressed body with plain
+    // bytes, so the replacement is not mislabeled as gzip/br.
+    headers_state.handler().remove_header("content-length");
+    headers_state.handler().remove_header("content-encoding");
+
+    // --- BODY PHASE --- (headers are frozen once you cross into the body state)
+    let body_state = headers_state.into_body_state().await;
+    let body = body_state.handler().body();
+    // … transform `body` …
+    let _ = body_state.handler().set_body(&new_body);
+}
+```
+
+**Consequence — a body-content-dependent status rewrite is not possible on the split
+flow.** `:status` is committed in the headers phase, before the body is read, so a
+filter that only learns the body is bad *after* reading it can rewrite the **body**
+(e.g. to a fail-closed error envelope) but must leave the status as the upstream sent
+it. If you need a late status change you would need the combined state — which is the
+one that hangs. Design response filters to be body-only on the affected runtimes.
 
 ---
 

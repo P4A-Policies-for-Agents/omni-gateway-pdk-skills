@@ -1,6 +1,6 @@
 ---
 name: pdk-integration-tests
-description: Use when writing integration tests for PDK custom policies using Docker-based Omni Gateway in Local Mode, configuring FlexConfig and ApiConfig, mocking backend services with HttpMockConfig, or troubleshooting policy loading issues in the automated testing framework.
+description: Use when writing integration tests for PDK custom policies using Docker-based Omni Gateway in Local Mode, configuring FlexConfig and ApiConfig, mocking backend services with HttpMockConfig, or troubleshooting policy loading issues in the automated testing framework — including httpmock matcher failures ("Anonymous function request matchers are not supported when using a remote mock server") and asserting a request header was stripped.
 ---
 
 # Skill: Writing Integration Tests
@@ -145,6 +145,56 @@ async fn say_hello() -> anyhow::Result<()> {
     Ok(())
 }
 ```
+
+## httpmock Matchers: Use Declarative, Not Closures (Remote Server)
+
+The `pdk-test` harness runs httpmock as a **standalone (remote) mock server** the
+test connects to over the network — not the in-process server. The remote server
+**rejects closure-based request matchers**:
+
+```rust
+// ❌ FAILS at runtime on the pdk-test harness:
+//    "Anonymous function request matchers are not supported
+//     when using a remote mock server"
+when.matches(|req| req.headers.iter().any(|(k, _)| k == "accept-encoding"));
+```
+
+Use httpmock's **declarative** matchers instead — they serialize over the wire and
+work remotely: `.method(..)`, `.path_contains(..)`, `.header(name, value)`,
+`.header_exists(name)`, `.query_param(..)`, `.body_contains(..)`, etc. Note there is
+**no `header_missing`** matcher — you cannot directly assert a header is absent.
+
+### Asserting a header was *stripped* (no `header_missing`)
+
+To prove your policy removed a request header before it reached the upstream, exploit
+**registration order**. The remote server stores mocks in a `BTreeMap` keyed by an
+ascending id and serves the **first-registered** mock whose matchers all pass. So
+register a *sentinel* first that matches only if the header survived, then the normal
+mock:
+
+```rust
+// 1. Sentinel — matches ONLY if the header reached the upstream. Registered first,
+//    so it wins the tie if it matches. A distinctive status proves the leak.
+let sentinel = mock.mock_async(|when, then| {
+    when.method(httpmock::Method::GET)
+        .path_contains("/resource")
+        .header_exists("accept-encoding");
+    then.status(418).body(r#"{"error":"header was not stripped"}"#);
+}).await;
+
+// 2. Normal mock — matches when the sentinel does not (header stripped).
+let ok = mock.mock_async(|when, then| {
+    when.method(httpmock::Method::GET).path_contains("/resource");
+    then.status(200).body(expected_body);
+}).await;
+
+// If the strip worked, the sentinel never matched and served 0 hits.
+sentinel.assert_hits(0);
+ok.assert();          // the normal mock served the request
+```
+
+`Mock` exposes `hits()`, `assert()` (≥1 hit), and `assert_hits(n)` for these checks.
+Header-name matching is case-insensitive.
 
 ## Configure a Flex Service Instance
 
