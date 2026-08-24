@@ -3,3 +3,5 @@
 .direnv/
 .DS_Store
 CLAUDE.md
+.vscode/
+skills/pdk-publish-policies/SKILL.md

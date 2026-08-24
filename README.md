@@ -24,7 +24,7 @@ fall into a few groups:
   and contract validation, DataWeave, HTTP calls, WebSockets, and more
 - **AI gateway** — `pdk-mcp`, `pdk-a2a`, `pdk-embedding-services`, `pdk-vector-stores`
 - **Build config** — `pdk-cargo-features` (Cargo feature flags to trim WASM; `jwt-fips` FIPS backend)
-- **Maintenance** — `pdk-upgrade-pdk`, `pdk-publish-policies`
+- **Maintenance** — `pdk-upgrade-pdk`
 
 Many `SKILL.md` files end with a **Source Ref** block recording the public docs page and snapshot
 date the content was derived from. A few hands-on/pattern skills (e.g. `pdk-runtime-model`,

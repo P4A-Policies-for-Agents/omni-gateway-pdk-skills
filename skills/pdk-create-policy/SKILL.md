@@ -392,8 +392,7 @@ make release-interactive  # select BG interactively, then release
 
 PDK 1.10-generated unified-model projects reuse an unchanged policy definition by default during
 `make publish` and `make release`. Set `SKIP_UNCHANGED_DEFINITION=false` to force a new definition.
-This feature is unavailable to projects generated with an earlier PDK and then upgraded. See
-[[pdk-publish-policies]].
+This feature is unavailable to projects generated with an earlier PDK and then upgraded.
 
 ## Split-Model Project Structure
 
