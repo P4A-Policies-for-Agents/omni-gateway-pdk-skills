@@ -128,8 +128,10 @@ pub trait BodyHandler {
 ### Streaming Bodies
 
 For bodies too large to buffer, use the streaming body state **only when the operation can process
-each chunk independently**. Streaming is read-only (cannot write) and does not affect
-reading/writing headers. If a decision needs bytes from a future chunk, retained data can still grow
+each chunk independently**. Streaming is read-only by default (cannot write) and does not affect
+reading/writing headers. Per-chunk writing (`write_chunk` on the stream body state) exists only
+behind the `experimental` Cargo feature — see the `pdk-experimental-feature` skill; without that
+flag the stream is strictly read-only. If a decision needs bytes from a future chunk, retained data can still grow
 until it hits a buffer limit. Whole-document transformations that produce a replacement body need a
 declared maximum size, a chunk-compatible design, or an upstream service that performs the
 transformation; PDK 1.10 fails oversized writes more safely but does not remove this constraint.

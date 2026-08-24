@@ -69,7 +69,7 @@ For non-PDK policies use `with_context` instead of `with_entrypoint` — it take
 ```rust
 let mut tester = UnitTestBuilder::default()
     .with_backend(UnitHttpResponse::new(200))
-        .with_context(|| Box::new(MyRootContext));
+    .with_context(|| Box::new(MyRootContext));
 ```
 
 ## Test a Policy Chain (PDK 1.10+)

@@ -19,10 +19,14 @@ The library is available from `pdk::contracts` module. Use `ContractValidator` t
 
 ```rust
 impl ContractValidator {
-   pub fn authenticate(client_id: &ClientId, client_secret: &ClientSecret) -> Result<ClientData, AuthenticationError>;
-   pub fn authorize(client_id: &ClientId, client_secret: &ClientSecret) -> Result<ClientData, AuthorizationError>;
+   // Verifies client_id AND client_secret against the current contract.
+   pub fn authenticate(&self, client_id: &ClientId, client_secret: &ClientSecret) -> Result<ClientData, AuthenticationError>;
+   // Verifies only client_id (client-id-only enforcement, no secret).
+   pub fn authorize(&self, client_id: &ClientId) -> Result<ClientData, AuthorizationError>;
 }
 ```
+
+Both are methods on an injected `&ContractValidator` (call as `validator.authenticate(..)`), not associated functions. `authenticate` takes both credentials; `authorize` takes only the `client_id`.
 
 Both methods return `ClientData`:
 
