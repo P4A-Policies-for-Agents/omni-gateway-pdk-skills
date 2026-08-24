@@ -15,15 +15,19 @@ This skill covers how to debug and test custom policies locally using the PDK De
 
 - **Docker** must be installed and running
 - Policy project must be compiled (`make build`)
-- A registered Omni Gateway instance in Local Mode
+- PDK 1.10-generated projects create a disconnected Local Mode registration automatically when one
+  is not provided. Older projects require manual registration or the generated Makefile target.
 
 ## Steps
 
 ### 1. Register an Omni Gateway Instance in Local Mode
 
-A `registration.yaml` file must exist in the `<root-directory>/playground/config` directory.
+A `registration.yaml` file must exist in the `<root-directory>/playground/config` directory. In a
+project generated with PDK 1.10, `make run` creates a disconnected registration automatically when
+the file is absent.
 
-Create this file by running the Omni Gateway registration command **from inside that directory**, or copy a `registration.yaml` from a previously registered Omni Gateway.
+To override the generated registration, run the Omni Gateway registration command **from inside
+that directory** and keep the resulting file local to the device.
 
 **Important:**
 - Run only the registration command — do **not** run the Docker start command (the `make run` command handles that)
@@ -122,6 +126,15 @@ This starts two Docker containers defined in `<root-directory>/playground/docker
 
 To stop the containers, press `Cmd+c` or `Ctrl+c` from the terminal running them.
 
+PDK 1.10-generated playgrounds parameterize the Omni image with the same variables as `pdk-test`:
+
+```yaml
+image: ${PDK_TEST_FLEX_IMAGE_NAME:-mulesoft/flex-gateway}:${PDK_TEST_FLEX_IMAGE_VERSION:-1.13.4}
+```
+
+Set those environment variables to test another image or version. Updating an older project's Rust
+dependencies does not rewrite its Compose or Makefile files; backport the generated files explicitly.
+
 ### 5. Test with Requests
 
 Once containers are running, send requests to the API instance:
@@ -158,3 +171,8 @@ To debug Rust code in VS Code:
 
 - Skill: Writing Integration Tests (`pdk-integration-tests`)
 - Skill: Test PDK Policy Locally (`pdk-test-locally`)
+
+## Documentation Reference
+
+- Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-debug-local
+- **Snapshot:** 2026-08-24

@@ -14,7 +14,9 @@ This skill guides local testing of any Omni Gateway custom policy using the Dock
 - **Docker** must be running
 - **Rust toolchain** with `wasm32-wasip1` target installed (via rustup, not Homebrew)
 - **cargo-anypoint** installed (`make setup` in the implementation directory)
-- **`registration.yaml`** must exist under `playground/config/` (copy from another policy if missing)
+- **Registration**: PDK 1.10-generated projects create a disconnected registration automatically
+  when `playground/config/registration.yaml` is missing. Older projects need manual registration or
+  the generated Makefile target backported.
 
 ## Steps
 
@@ -38,13 +40,9 @@ All subsequent commands run from this directory.
 Ensure the following files exist under `playground/config/`:
 
 - **`api.yaml`** — API instance config with policy reference and test configuration values
-- **`registration.yaml`** — Omni Gateway registration (contains agent ID, certificates, platform URLs). Copy from an existing policy if missing:
-
-```bash
-cp ../../<existing-policy>/playground/config/registration.yaml playground/config/registration.yaml
-# or for split-model:
-cp ../../<existing-policy>/<existing-policy>-flex/playground/config/registration.yaml playground/config/registration.yaml
-```
+- **`registration.yaml`** — optional local override for Omni Gateway registration. In a PDK
+  1.10-generated project, `make run` creates a disconnected registration when it is missing. Do not
+  copy registration credentials between projects or devices as the default setup path.
 
 ### 4. Build and Run
 
@@ -98,6 +96,9 @@ To make changes and re-test:
 
 ```bash
 make test
+
+# PDK 1.10-generated projects: run one test
+make test TEST=<test_name>
 ```
 
 This builds the policy and runs the test suite in `tests/requests.rs` using `pdk-test` with a Docker-based Omni Gateway and mock backend.
@@ -113,6 +114,8 @@ docker compose -f ./playground/docker-compose.yaml down
 ## Common Issues
 
 - **`wasm32-wasip1` target not found**: Homebrew Rust doesn't support WASM targets. Ensure `$HOME/.cargo/bin` is first in PATH (rustup-managed toolchain).
-- **`make run` fails immediately**: Check that `registration.yaml` exists in `playground/config/`.
+- **`make run` cannot create registration**: On a PDK 1.10-generated project, inspect the generated
+  registration target and Docker output. On an older project, register manually or backport the
+  1.10 Makefile target.
 - **Port 8081 already in use**: Stop other services using port 8081, or change the port in both `playground/config/api.yaml` and `playground/docker-compose.yaml`.
 - **Policy not applied**: Verify `playground/config/api.yaml` has the correct `policyRef.name` and matching `config` values. The `make run` target auto-patches the policy ref name.

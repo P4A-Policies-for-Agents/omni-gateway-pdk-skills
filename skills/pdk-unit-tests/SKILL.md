@@ -1,6 +1,6 @@
 ---
 name: pdk-unit-tests
-description: Use when writing deterministic unit tests for PDK policies with pdk-unit framework (1.8+), covering request/response lifecycle, WebSocket frame testing (1.9+), TraceBackend upstream verification, mocking HTTP/gRPC upstreams, testing client ID enforcement, time-based behavior with Clock/Timer, dw2pel config serialization, local_mode resilience testing, and JSON-RPC error validation.
+description: Use when writing deterministic unit tests for PDK policies with pdk-unit, including request/response and WebSocket lifecycles, PDK 1.10 policy chains and log levels, TraceBackend, HTTP/gRPC mocks, time, dw2pel config, local_mode resilience, and JSON-RPC errors.
 ---
 
 # Skill: Writing Unit Tests with pdk-unit
@@ -49,10 +49,10 @@ proxy-wasm = "0.2.5"
 
 # host-side stub replaces proxy-wasm for native test builds; NOT for wasm32
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pdk-proxy-wasm-stub = "1.9.2"
+pdk-proxy-wasm-stub = "1.10.0"
 
 [dev-dependencies]
-pdk-unit = { version = "1.9.2", default-features = false, features = ["proxy-wasm-rust-sdk"] }
+pdk-unit = { version = "1.10.0", default-features = false, features = ["proxy-wasm-rust-sdk"] }
 ```
 
 Import the right crate per target in the policy code, and build tests against the stub:
@@ -69,8 +69,43 @@ For non-PDK policies use `with_context` instead of `with_entrypoint` — it take
 ```rust
 let mut tester = UnitTestBuilder::default()
     .with_backend(UnitHttpResponse::new(200))
-    .with_context(|| Box::new(MyRootContext));
+        .with_context(|| Box::new(MyRootContext));
 ```
+
+## Test a Policy Chain (PDK 1.10+)
+
+Use `FilterChainBuilder` to test multiple policies in their gateway order:
+
+```rust
+use pdk_unit::{FilterChainBuilder, TraceBackend, UnitHttpResponse};
+use serde_json::json;
+
+let mut tester = FilterChainBuilder::default()
+    .with_filter(json!({"key": "value_a"}).to_string(), policy_a::configure)
+    .with_filter(json!({"key": "value_b"}).to_string(), policy_b::configure)
+    .with_backend(TraceBackend::new(UnitHttpResponse::new(200)))
+    .build();
+```
+
+The first filter is outermost, closest to the client: it processes requests first and responses
+last. The last filter is closest to the origin. Each filter gets isolated policy configuration and
+context; API, gateway, and platform metadata are shared across the chain. Register authority-based
+HTTP or gRPC upstreams on the chain builder so they resolve for every filter.
+
+## Set the Test Log Level (PDK 1.10+)
+
+Both `UnitTestBuilder` and `FilterChainBuilder` provide `set_log_level`:
+
+```rust
+use pdk_unit::{UnitLogLevel, UnitTestBuilder};
+
+let mut tester = UnitTestBuilder::default()
+    .set_log_level(UnitLogLevel::Warn)
+    .with_entrypoint(crate::configure);
+```
+
+Available levels are `Trace`, `Debug`, `Info`, `Warn`, `Error`, `Critical`, and `Disabled`.
+Messages below the selected level are suppressed; `Disabled` suppresses all test-host logs.
 
 ## Repo Conventions
 
@@ -360,9 +395,11 @@ fn control_frames_pass_through_unchanged() {
 
 Construct frames with `UnitFrame`. The text/binary constructors take a `fin` flag marking the final fragment of a message:
 - `UnitFrame::text(payload, fin)`, `UnitFrame::binary(payload, fin)`
-- `UnitFrame::ping()`, `UnitFrame::pong()`, `UnitFrame::close()`
+- `UnitFrame::continuation(payload, fin)`
+- `UnitFrame::ping()`, `UnitFrame::pong()`, `UnitFrame::connection_close()`
 
-Inspect received frames with `frame.frame_type()` (`UnitFrameType::{Text, Binary, Ping, Pong, Close}`) and `frame.data()`. `next()` returns `Option<UnitFrame>`.
+Inspect received frames with `frame.frame_type()` (`UnitFrameType::{Text, Binary, Continuation,
+Ping, Pong, ConnectionClose, Reserved}`) and `frame.data()`. `next()` returns `Option<UnitFrame>`.
 
 ### Frame chunking and `set_chunk_size`
 
@@ -621,6 +658,7 @@ assert_eq!(upstream_req.body(), b"expected body");
 | `metadata(f)` | Mutates the `Metadata` injected into policy context. Call before `with_*_upstream_from_authority` methods. Pass `pdk_tests_utils::helpers::configure_asset` for Exchange-fetching policies |
 | `local_mode()` | Strips `ApiContext` and sets `anypoint: None` to simulate a control-plane-disconnected deployment. Requires `experimental_local_mode` feature on `pdk-unit` |
 | `with_context(f)` | Builds a `UnitTest` from a root-context closure instead of an entrypoint. Use for non-PDK proxy-wasm policies (PDK 1.9+) |
+| `set_log_level(level)` | Sets the minimum `UnitLogLevel` on `UnitTestBuilder` or `FilterChainBuilder` (PDK 1.10+) |
 | `with_entrypoint(entrypoint)` | Consumes the builder and creates a `UnitTest`. Pass `crate::configure` as the entrypoint |
 
 ## Core API Reference
@@ -628,6 +666,8 @@ assert_eq!(upstream_req.body(), b"expected body");
 | Type / Function | Description |
 |----------------|-------------|
 | `UnitTestBuilder` | Fluent builder. Configure policy, metadata, and backends, then call `with_entrypoint` |
+| `FilterChainBuilder` | Builds a multi-policy `UnitTest`; filters run request-first/response-last in insertion order (PDK 1.10+) |
+| `UnitLogLevel` | Test-host log threshold: `Trace` through `Critical`, or `Disabled` (PDK 1.10+) |
 | `UnitTest` | Main orchestrator. Use `request` for synchronous tests or `request_partial` plus `poll` for finer control |
 | `UnitHttpRequest` | HTTP request built with method helpers (`get()`, `post()`, etc.) or `custom()`. Use `with_path`, `with_header`, `with_body` |
 | `UnitHttpResponse` | HTTP response from `new(status_code)`. Exposes `status_code()` and `UnitHttpMessage` trait accessors |
@@ -637,8 +677,8 @@ assert_eq!(upstream_req.body(), b"expected body");
 | `Backend` | Trait for HTTP upstream mocks. Implemented for closures and structs |
 | `GrpcBackend` | Trait for gRPC upstream mocks |
 | `UpgradeConnection` | WebSocket handle from `upgrade()` (PDK 1.9+). `response()`, `client()`, `server()` |
-| `UnitFrame` | WebSocket frame: `text(payload, fin)`, `binary(payload, fin)`, `ping()`, `pong()`, `close()`; inspect with `frame_type()`, `data()` |
-| `UnitFrameType` | Frame-type enum: `Text`, `Binary`, `Ping`, `Pong`, `Close` |
+| `UnitFrame` | WebSocket frame: `text(payload, fin)`, `binary(payload, fin)`, `continuation(payload, fin)`, `ping()`, `pong()`, `connection_close()`; inspect with `frame_type()`, `data()` |
+| `UnitFrameType` | Frame-type enum: `Text`, `Binary`, `Continuation`, `Ping`, `Pong`, `ConnectionClose`, `Reserved` |
 
 ## Documentation Reference
 
@@ -647,7 +687,9 @@ assert_eq!(upstream_req.body(), b"expected body");
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-unit.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-unit.adoc`
+- **API:** https://docs.rs/pdk-unit/1.10.0/pdk_unit/struct.FilterChainBuilder.html
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

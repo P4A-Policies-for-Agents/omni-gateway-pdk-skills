@@ -27,16 +27,16 @@ Set `default-features = false` on the `pdk` dependency, then re-add only what yo
 
 ```toml
 # Disable both JWT and XML Validator:
-pdk = { version = "1.9.2", default-features = false }
+pdk = { version = "1.10.0", default-features = false }
 
 # Keep only JWT:
-pdk = { version = "1.9.2", default-features = false, features = ["jwt"] }
+pdk = { version = "1.10.0", default-features = false, features = ["jwt"] }
 
 # Keep only XML Validator:
-pdk = { version = "1.9.2", default-features = false, features = ["xml_validator"] }
+pdk = { version = "1.10.0", default-features = false, features = ["xml_validator"] }
 ```
 
-If you leave the default `pdk = { version = "1.9.2" }`, both features are on.
+If you leave the default `pdk = { version = "1.10.0" }`, both features are on.
 
 ## FIPS-Compliant JWT (`jwt-fips`)
 
@@ -44,10 +44,10 @@ If you leave the default `pdk = { version = "1.9.2" }`, both features are on.
 
 ```toml
 # FIPS-compliant JWT only:
-pdk = { version = "1.9.2", default-features = false, features = ["jwt-fips"] }
+pdk = { version = "1.10.0", default-features = false, features = ["jwt-fips"] }
 
 # FIPS-compliant JWT with XML Validator:
-pdk = { version = "1.9.2", default-features = false, features = ["jwt-fips", "xml_validator"] }
+pdk = { version = "1.10.0", default-features = false, features = ["jwt-fips", "xml_validator"] }
 ```
 
 The JWT API surface (`SignatureValidator`, `JwtGenerator`, claim accessors) is the same under `jwt-fips` — see the `pdk-jwt` skill. Only the crypto backend differs. For scaffolding a fully FIPS-compliant project use `pdk create --fips`; see `pdk-upgrade-pdk`.
@@ -70,6 +70,6 @@ The JWT API surface (`SignatureValidator`, `JwtGenerator`, claim accessors) is t
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.9/modules/ROOT/pages/policies-pdk-create-project.adoc` (#configure-pdk-features)
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-create-project.adoc` (#configure-pdk-features)
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1)
-- **Snapshot:** 2026-07-28
+- **Snapshot:** 2026-08-24

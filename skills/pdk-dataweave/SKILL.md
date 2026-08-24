@@ -133,6 +133,9 @@ Some expressions can resolve before all values are bound. Check with:
 evaluator.is_ready()
 ```
 
+PDK 1.10 optimizes script-evaluation setup. No API or configuration change is required to receive
+the optimization after upgrading the PDK libraries.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-dataweave
@@ -140,7 +143,8 @@ evaluator.is_ready()
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-dataweave.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-dataweave.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

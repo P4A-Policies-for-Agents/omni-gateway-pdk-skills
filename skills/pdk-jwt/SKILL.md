@@ -159,7 +159,7 @@ properties:
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.9/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
-- **Snapshot:** 2026-07-28 (added 1.9.1 `jwt`/`jwt-fips` Cargo features)
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
+- **Snapshot:** 2026-08-24 (includes 1.9.1 `jwt`/`jwt-fips` Cargo features)

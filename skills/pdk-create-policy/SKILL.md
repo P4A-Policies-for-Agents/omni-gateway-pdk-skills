@@ -14,7 +14,7 @@ This skill guides the creation of new Omni Gateway custom policies using the PDK
 - **Anypoint CLI v4** (v1.6.14+): `npx anypoint-cli-v4@latest`
 - **PDK Plugin** (v1.7.0+): `anypoint-cli-v4 plugins:install anypoint-pdk-plugin`
   - **Important**: If the older `anypoint-cli-pdk-plugin` is installed, uninstall it first (`anypoint-cli-v4 plugins:uninstall anypoint-cli-pdk-plugin`) — it conflicts with the new plugin and intercepts the `--project-mode` flag.
-- **Rust toolchain**: edition 2018+, with `wasm32-wasip1` target installed
+- **Rust toolchain**: Rust 1.88.0, with the `wasm32-wasip1` target installed
 - **Docker**: required for local playground testing
 - **Anypoint Platform account**: with organization access for publishing
 
@@ -346,12 +346,13 @@ spec:
         <propertyName>: <testValue>
 ```
 
-**Add `registration.yaml`**: Copy `playground/config/registration.yaml` from an existing policy in the repo. This file contains the Omni Gateway registration configuration (agent ID, certificates, platform connection URLs) required for the local Docker playground to run. Without it, `make run` will fail.
+**Registration in PDK 1.10-generated projects**: `make run` creates a disconnected
+`playground/config/registration.yaml` automatically when none is provided. You may supply a manual
+registration as a local override. Do not copy registration credentials between projects or devices
+as the default setup path.
 
-```bash
-cp ../../../<existing-policy>/<existing-policy>-flex/playground/config/registration.yaml \
-   playground/config/registration.yaml
-```
+The generated playground also parameterizes the Omni image with
+`PDK_TEST_FLEX_IMAGE_NAME` and `PDK_TEST_FLEX_IMAGE_VERSION`.
 
 ### 13. Update `.gitignore`
 
@@ -376,6 +377,9 @@ make run
 
 # Run integration tests
 make test
+
+# Run one integration test (PDK 1.10-generated Makefile)
+make test TEST=<test_name>
 ```
 
 ### 15. Publish
@@ -385,6 +389,11 @@ make publish              # development version to Exchange
 make release              # production release to Exchange (current BG)
 make release-interactive  # select BG interactively, then release
 ```
+
+PDK 1.10-generated unified-model projects reuse an unchanged policy definition by default during
+`make publish` and `make release`. Set `SKIP_UNCHANGED_DEFINITION=false` to force a new definition.
+This feature is unavailable to projects generated with an earlier PDK and then upgraded. See
+[[pdk-publish-policies]].
 
 ## Split-Model Project Structure
 
@@ -408,7 +417,7 @@ make release-interactive  # select BG interactively, then release
     playground/
       config/
         api.yaml           # Local test API config with policy settings
-        registration.yaml  # Omni Gateway registration (copied from existing policy, gitignored)
+        registration.yaml  # Auto-generated when absent or supplied as a local override (gitignored)
       docker-compose.yaml
     tests/
       common/mod.rs    # Shared test constants (POLICY_DIR, POLICY_NAME, etc.)
@@ -424,7 +433,9 @@ make release-interactive  # select BG interactively, then release
 [package]
 name = "<policy_name_underscored>"
 version = "1.0.0"
+rust-version = "1.88.0"
 edition = "2018"
+resolver = "2"
 
 [package.metadata.anypoint]
 group_id = "<org-group-id>"
@@ -435,13 +446,13 @@ implementation_asset_id = "<policy-name>-flex"
 # PDK 1.9.1+ gates the JWT and XML Validator libraries behind Cargo features
 # (default = ["jwt", "xml_validator"], both on). To shrink WASM or use the
 # FIPS jwt-fips backend, see the pdk-cargo-features skill.
-pdk = { version = "1.9.2" }
+pdk = { version = "1.10.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 anyhow = "1.0"
 
 [dev-dependencies]
-pdk-test = { version = "1.9.2" }
+pdk-test = { version = "1.10.0" }
 httpmock = "0.6"
 reqwest = "0.11"
 
@@ -462,6 +473,11 @@ strip = "debuginfo"
 - **No `pdk::time` module**: PDK does not expose a time module. Use `std::time::SystemTime` for timestamps (it works in the WASM environment).
 - **Response body as bytes**: `Response::new(status).with_body()` expects `Vec<u8>`, not `&str`. Use `.into_bytes()` on strings.
 - **Header names are lowercase**: When reading headers via `handler.header("name")`, always use lowercase header names.
+- **Generated-file upgrades are explicit**: A dependency bump does not add PDK 1.10's automatic
+  registration, `TEST` Make parameter, or parameterized Compose image to an older project. Compare
+  against a freshly generated project of the same model and backport those relevant Makefile/Compose
+  changes. Unchanged-definition reuse is different: it is supported only for projects originally
+  generated with PDK 1.10 or later and cannot be enabled by backporting the Makefile flag.
 
 ## Documentation References
 
@@ -469,4 +485,4 @@ strip = "debuginfo"
 - Policy templates/examples: https://docs.mulesoft.com/pdk/latest/policies-pdk-policy-templates
 - Developing custom policies: https://docs.mulesoft.com/pdk/latest/policies-pdk-develop-custom-policies
 - PDK crate: https://crates.io/crates/pdk
-- PDK API docs: https://docs.rs/pdk/1.9.2/pdk/
+- PDK API docs: https://docs.rs/pdk/1.10.0/pdk/

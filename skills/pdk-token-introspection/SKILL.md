@@ -1,6 +1,6 @@
 ---
 name: pdk-token-introspection
-description: Use when validating OAuth 2.0 tokens with an upstream introspection service via PDK's TokenValidatorBuilder, including configuration of introspection endpoints, authorization credentials, cache settings, scopes validation, and RFC 9728 protected resource metadata discovery.
+description: Use when validating OAuth 2.0 tokens with TokenValidatorBuilder or serving RFC 9728 protected-resource metadata independently with PDK 1.10 ProtectedResourceMetadataBuilder, including credentials, cache settings, scopes, discovery responses, and 401 challenges.
 ---
 
 # Skill: Using OAuth 2.0 Token Introspection Library Functions
@@ -58,6 +58,41 @@ async fn configure(
 | `with_protected_resource_metadata` | auth server url | No default | Enables RFC 9728 protected resource discovery. Well-known endpoint path and resource URL are derived from the API base path in PDK metadata |
 | `with_protected_resource_metadata_with_properties` | auth server url, additional properties (Value) | No default | Same as above but with additional metadata properties (e.g., `scopes_supported`, `bearer_methods_supported`) |
 
+## Build RFC 9728 Metadata Without Token Introspection (PDK 1.10+)
+
+Use `ProtectedResourceMetadataBuilder` when a policy needs RFC 9728 discovery or challenge responses
+without also constructing a token validator:
+
+```rust
+use pdk::token_introspection::ProtectedResourceMetadataBuilder;
+
+let protected_resource = ProtectedResourceMetadataBuilder::new(api_base_path)
+    .with_authorization_server("https://auth.example.com")
+    .build()?;
+```
+
+`api_base_path` is an `Option<String>` obtained from PDK metadata. It places the endpoint under the
+API prefix, for example `/api/.well-known/oauth-protected-resource`.
+
+Use the built helper in a request filter:
+
+```rust
+if let Some(response) = protected_resource.build_metadata_response(&path, &method, &origin) {
+    return Flow::Break(response);
+}
+
+// After token validation fails:
+return Flow::Break(
+    protected_resource.unauthorized_response(&origin, Some(r#"realm="My API""#)),
+);
+```
+
+- `build_metadata_response(path, method, origin)` returns `Some(Response)` only for a matching GET
+  to the well-known endpoint; otherwise continue normal processing.
+- `unauthorized_response(origin, extra)` builds a 401 `WWW-Authenticate` challenge containing the
+  `resource_metadata` URL.
+- `origin` must be the request origin in `scheme://authority` form.
+
 ## Validate a Token
 
 Use `validate` to send a request to the introspection endpoint:
@@ -87,7 +122,9 @@ contract in [[pdk-http-call]].
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-token-introspection.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-token-introspection.adoc`
+- **API:** https://docs.rs/pdk/1.10.0/pdk/token_introspection/struct.ProtectedResourceMetadataBuilder.html
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

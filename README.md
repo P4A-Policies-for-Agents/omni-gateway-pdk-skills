@@ -24,7 +24,7 @@ fall into a few groups:
   and contract validation, DataWeave, HTTP calls, WebSockets, and more
 - **AI gateway** — `pdk-mcp`, `pdk-a2a`, `pdk-embedding-services`, `pdk-vector-stores`
 - **Build config** — `pdk-cargo-features` (Cargo feature flags to trim WASM; `jwt-fips` FIPS backend)
-- **Maintenance** — `pdk-upgrade-pdk`
+- **Maintenance** — `pdk-upgrade-pdk`, `pdk-publish-policies`
 
 Many `SKILL.md` files end with a **Source Ref** block recording the public docs page and snapshot
 date the content was derived from. A few hands-on/pattern skills (e.g. `pdk-runtime-model`,
@@ -39,7 +39,7 @@ Code, a plugin or your skills directory). Once installed, the agent invokes the 
 
 ## Versioning
 
-Skills currently target **PDK 1.9.2**. PDK ships breaking changes between releases (CLI plugin
+Skills currently target **PDK 1.10.0**. PDK ships breaking changes between releases (CLI plugin
 renames, Rust/WASI target bumps); see `skills/pdk-upgrade-pdk/SKILL.md` for upgrade guidance.
 
 ## License

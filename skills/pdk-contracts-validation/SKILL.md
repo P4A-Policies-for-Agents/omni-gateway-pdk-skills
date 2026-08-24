@@ -119,6 +119,10 @@ async fn configure(launcher: Launcher, clock: Clock, validator: ContractValidato
 }
 ```
 
+PDK 1.10 improves internal error handling and adds retry behavior in the contracts collector. The
+retry is internal; keep using `update_contracts`, `UPDATE_PERIOD`, and `INITIALIZATION_PERIOD` as
+documented rather than adding an application-level retry loop around the collector.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-contracts
@@ -126,7 +130,8 @@ async fn configure(launcher: Launcher, clock: Clock, validator: ContractValidato
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-contracts.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-contracts.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

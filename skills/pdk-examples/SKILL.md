@@ -44,7 +44,7 @@ Map from feature name → file(s) under `templates/`. Features with multiple fil
 
 - **http_call** — `http_call.rs.template`, `http_call.gcl.template`
 - **grpc** — `grpc.rs.template`, `grpc.gcl.template`, `grpc.proto.template`, `grpc.build.template`, `grpc.toml.template`
-- **websocket** — `websocket.rs.template`, `websocket.toml.template` (open beta, PDK 1.9.0; `pdk::websockets` frame decode/encode + `FilterBuilder` upgrade hooks; needs `features = ["ll", "experimental_websocket"]`)
+- **websocket** — `websocket.rs.template`, `websocket.toml.template` (open beta introduced in PDK 1.9.0; template targets 1.10.0, including HTTP/timer flow support and shared configure references; needs `features = ["ll", "experimental_websocket"]`)
 
 ### Validation and transformation
 

@@ -1,6 +1,6 @@
 ---
 name: pdk-experimental-feature
-description: Use when working with undocumented PDK experimental features (experimental_enable_stop_iteration, experimental_metrics, experimental), including mandatory code annotations with feature name and expected GA version, Cargo.toml feature flag documentation, and migration checklists for when features graduate to stable.
+description: Use when working with PDK experimental Cargo features, including the PDK 1.10 experimental aggregate, contracts v2, data-storage formats and sync, body-limit-check bypass, metrics, WebSockets, mandatory code annotations, and migration checklists for GA.
 ---
 
 # Skill: Using PDK Experimental Features
@@ -96,13 +96,34 @@ pdk = { version = "1.8.0", features = ["enable_stop_iteration"] }
 
 For full documentation of this feature, see the **pdk-request-headers-bodies** skill (Approach 2: Stop Iteration).
 
-## Available Experimental Features (PDK 1.9)
+## Available Experimental Features (PDK 1.10)
+
+PDK 1.10 exposes these experimental feature flags:
+
+| Feature | Enables |
+|---|---|
+| `experimental` | Aggregate: core/classy experimental APIs, contracts v2, data-storage formats, metrics, and WebSockets |
+| `experimental_contracts_v2` | Contracts v2 library surface |
+| `experimental_datastorage_formats` | Experimental data-storage formats |
+| `experimental_disable_body_limit_check` | Bypasses the PDK body-size guard; does not remove the Omni/Envoy physical buffer limit |
+| `experimental_metrics` | Custom policy counters, gauges, and readiness metrics |
+| `experimental_storage_sync` | Experimental synchronous data-storage support |
+| `experimental_websocket` | Open-beta WebSocket filters and frame APIs |
+
+Enable the narrowest feature that provides the API you need. The aggregate `experimental` feature
+is substantially broader than body-stream writing and can increase API/behavior exposure.
 
 ### `experimental`
 
 **Expected GA:** Unknown
 
-Enables body stream writing (`write_chunk` on `BodyStreamState`) and chunk construction. Less commonly needed for standard policies.
+Enables the aggregate set shown above, including WebSockets, metrics, contracts v2, experimental
+data-storage formats, and core/classy experimental APIs. Do not use it when a narrower flag works.
+
+`experimental_disable_body_limit_check` only removes a PDK guard. It can expose older failure modes:
+an oversized request rewrite can produce a 413 and an oversized response rewrite can panic on older
+PDK/gateway combinations. PDK 1.10 with the matching Omni fix checks the configured physical buffer
+more safely; no experimental flag makes rewrite size unbounded. See [[pdk-request-headers-bodies]].
 
 ### `experimental_metrics`
 
@@ -113,7 +134,7 @@ Enables body stream writing (`write_chunk` on `BodyStreamState`) and chunk const
 **Enabling:**
 
 ```toml
-pdk = { version = "1.9.2", features = ["experimental_metrics"] }
+pdk = { version = "1.10.0", features = ["experimental_metrics"] }
 ```
 
 **Core types and traits:**

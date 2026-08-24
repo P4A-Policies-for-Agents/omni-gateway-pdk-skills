@@ -63,6 +63,14 @@ belongs in the spec. Large bodies under buffered filters stall the request and b
 SSE and other streaming MIME types, **streaming is mandatory** — buffering breaks the streaming
 contract from the client's point of view.
 
+Ordinary `into_body_state()` event-flow reads remain documented up to 1 MB; larger input requires
+streaming. Stop iteration buffers the full body and is bounded by
+`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` (1 MB by default). PDK 1.10 with a compatible Omni
+Gateway also reads that configured limit when validating a replacement write and reports an
+oversized body safely, but it cannot remove the physical cap. Size the stop-iteration buffer for the
+largest possible rewritten output, or redesign the operation as truly per-chunk processing. See
+[[pdk-request-headers-bodies]].
+
 ### Multiple replicas, no shared memory
 Each Envoy replica loads its own filter instances. There is **no shared in-process state across
 replicas.** A `HashMap` inside a policy is per-filter-instance and invisible everywhere else.

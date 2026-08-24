@@ -1,6 +1,6 @@
 ---
 name: pdk-sse-parsing
-description: Use when a PDK custom policy must parse Server-Sent Events (text/event-stream) in a streaming response body — LLM transcoding, streaming-API inspection or rewriting. Covers the SSE event-boundary rule (blank line, \n\n and \r\n\r\n), multi-line data: concatenation, optional space after the colon, the data:[DONE] sentinel, and the buffer-drain loop over a streaming body.
+description: "Use when a PDK custom policy must parse Server-Sent Events (text/event-stream) in a streaming response body - LLM transcoding, streaming-API inspection or rewriting. Covers blank-line event boundaries, multi-line data fields, optional spaces, the data:[DONE] sentinel, and the buffer-drain loop."
 ---
 
 # Skill: Parsing Server-Sent Events (SSE)

@@ -51,8 +51,11 @@ policy runs. If you then `Flow::Break`, the upstream response (e.g. a 404) can r
 synthetic one.
 
 Instead, buffer both in one transition with `into_headers_body_state().await` (requires the
-`enable_stop_iteration` feature; bodies up to 1 MB — see [[pdk-request-headers-bodies]]). Envoy
-holds the request in the filter and never forwards it, so your `Flow::Break` always wins.
+`enable_stop_iteration` feature). Envoy holds the request in the filter and never forwards it, so
+your `Flow::Break` always wins. The default buffer limit is 1 MB and can be changed with
+`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`; size it to the largest accepted body. PDK 1.10+
+with the corresponding Omni fix checks that configured limit and fails an oversized write cleanly,
+but the limit remains physical and finite. See [[pdk-request-headers-bodies]].
 
 ```rust
 // Terminating policy: atomic buffer, then answer. Envoy never forwards upstream.
@@ -64,6 +67,12 @@ Flow::Break(Response::new(200).with_body("answered by this policy"))
 
 This does **not** apply to pass-through policies (validate/decorate/transform-then-continue) —
 those correctly forward headers before the body arrives.
+
+For fail-closed validation, streaming is not automatically equivalent to atomic buffering: the
+separate event flow can forward headers or partial body data while validation is still running.
+Reject known-oversized requests from headers when possible, enforce a bounded accepted size, or
+move verification/buffering outside the policy when arbitrary-size input must be held before any
+upstream forwarding.
 
 ## Stop Response Execution
 
@@ -88,7 +97,7 @@ async fn response_filter(state: ResponseState) {
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-stop.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-stop.adoc`
+- **Snapshot:** 2026-08-24

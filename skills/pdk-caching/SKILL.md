@@ -1,6 +1,6 @@
 ---
 name: pdk-caching
-description: Use when implementing shared state between Envoy workers using the Cache mechanism, including cache configuration with CacheBuilder, TTL management, expiration handling, key construction rules, rate limiting with sliding windows, and response caching patterns.
+description: Use when implementing shared state between Envoy workers using the Cache mechanism, including CacheBuilder configuration, FIFO or LRU eviction, native global TTL, per-entry expiration, key construction rules, rate limiting with sliding windows, and response caching patterns.
 ---
 
 # Skill: Sharing Data Between Workers and Configuring Caching
@@ -63,6 +63,30 @@ pub trait Cache {
 
 **Important:** The PDK `Cache` is shared across all Envoy workers. Different workers write concurrently — no guarantee the value is unchanged between a `get` and a subsequent `save`. Use "last writer wins" semantics for idempotent data (e.g., tokens). For atomic read-modify-write, use `DataStorage` with CAS instead (see `pdk-data-storage` skill).
 
+## Eviction Strategy and Native TTL (PDK 1.10+)
+
+PDK 1.10 adds LRU eviction and a global TTL for cache entries. FIFO remains the default eviction
+strategy. Select LRU explicitly when reads should refresh recency:
+
+```rust
+use pdk::cache::{EvictionStrategy, LruStrategy};
+use std::time::Duration;
+
+let cache = cache_builder
+    .new("my-cache".to_string())
+    .eviction_strategy(EvictionStrategy::Lru(
+        LruStrategy::default().with_shards(1),
+    ))
+    .ttl(Duration::from_secs(300))
+    .max_entries(100)
+    .build();
+```
+
+The LRU cache shards its state. Eviction is per shard, so ordering is approximate across multiple
+shards. Use `with_shards(1)` when deterministic global LRU ordering matters. The `.ttl(Duration)`
+setting applies one TTL to all entries in that cache. Consumers that share a cache ID must use the
+same cache configuration.
+
 ## Cache Key Rules
 
 ### Simple Keys
@@ -117,9 +141,11 @@ let key = format!("obo::{}", hash_token(subject_token));
 
 - **Keys must be deterministic** — same inputs must always produce the same key.
 
-## Expiration Management
+## Per-Entry Expiration Management
 
-The PDK `Cache` has **no built-in TTL**. You must manage expiration in application logic.
+Use native `.ttl(Duration)` when every entry can share the same lifetime. Keep expiration in the
+cached value when entries need different validity windows, token-specific expiry and safety margins,
+or business validity that must be checked independently of cache eviction.
 
 ### Embed Expiry in Cached Value
 
@@ -500,7 +526,8 @@ spec:
 | Rule | Description |
 |------|-------------|
 | Always set `max_entries` | Never leave the cache builder without a size limit |
-| Embed expiry in values | PDK Cache has no native TTL — manage expiration yourself |
+| Prefer native TTL for uniform expiry | Use `.ttl(Duration)` when every entry has the same lifetime |
+| Embed expiry for per-entry validity | Keep logical expiry for token-specific or business-specific windows |
 | Validate on read | Check deserialization and expiry; delete corrupt/expired entries |
 | Cap TTL with safety margin | `min(remaining * 0.9, max_ttl)`, skip if < 10s left |
 | Deterministic keys | Same inputs must always produce the same key |
@@ -518,8 +545,9 @@ spec:
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `bb0f3c6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-caching.adoc`
-- **Snapshot:** 2026-04-23
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-caching.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24
 - **Enhanced:** 2026-03-28 — added patterns from `pdk-custom-policy-examples`

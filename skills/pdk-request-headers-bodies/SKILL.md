@@ -1,6 +1,6 @@
 ---
 name: pdk-request-headers-bodies
-description: Use when reading or writing request/response headers and bodies in PDK policies, covering the event flow approach (HeadersHandler, BodyHandler, streaming bodies for >1MB payloads, WebSocket frame bodies) and the stop iteration approach (enable_stop_iteration feature for simultaneous header-body access via into_headers_body_state) — including when a response filter hangs or returns an Envoy 504 with the combined headers+body state and must fall back to the split flow.
+description: Use when reading or writing request/response headers and bodies in PDK policies, covering HeadersHandler, BodyHandler, streaming, configured Omni/Envoy buffer limits, safe rewrite growth in PDK 1.10, WebSocket frames, and stop iteration via into_headers_body_state — including response-filter hangs with combined state.
 ---
 
 # Skill: Reading and Writing Request Headers and Bodies
@@ -85,7 +85,22 @@ let status = headers_state.status_code();
 
 ### Read and Write Request Bodies
 
-**NOTE:** Limited to payloads of 1MB or smaller. For larger payloads, use streaming bodies.
+**Default event-flow limit:** `into_body_state()` is documented for payloads up to 1 MB. Use the
+streaming state for larger input; changing the Omni connection buffer is not documented as raising
+this ordinary event-flow read limit.
+
+PDK version and gateway compatibility matter when `set_body` reaches or exceeds the old 1 MB check:
+
+- PDK before 1.10 normally rejects a replacement larger than 1 MB. Some experimental paths bypass
+  that check and attempt the write; an oversized response can panic and an oversized request can
+  produce a 413.
+- PDK 1.10+ running on an Omni Gateway with the corresponding fix reads the configured
+  `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` limit when validating replacement writes and
+  returns an error for a write at or above that limit instead of taking the panic path. Replacement
+  bodies must be strictly smaller than the configured limit.
+- Raising the connection buffer increases the finite supported size; it does not make rewrites
+  unbounded. A policy cannot write more than the physical buffer or generate arbitrary extra body
+  events.
 
 Transform to body state via `into_body_state()`:
 
@@ -108,11 +123,16 @@ pub trait BodyHandler {
 
 `BodyHandler::set_body()` may fail with:
 - `BodyError::BodyNotSent`: No body in current HTTP Flow (e.g., GET request)
-- `BodyError::ExceededBodySize`: New body exceeds maximum buffer size
+- `BodyError::ExceededBodySize`: New body is at or above the maximum buffer size
 
 ### Streaming Bodies
 
-For bodies larger than 1MB, use the streaming body state. Streaming is read-only (cannot write). Does not affect reading/writing headers.
+For bodies too large to buffer, use the streaming body state **only when the operation can process
+each chunk independently**. Streaming is read-only (cannot write) and does not affect
+reading/writing headers. If a decision needs bytes from a future chunk, retained data can still grow
+until it hits a buffer limit. Whole-document transformations that produce a replacement body need a
+declared maximum size, a chunk-compatible design, or an upstream service that performs the
+transformation; PDK 1.10 fails oversized writes more safely but does not remove this constraint.
 
 ```rust
 let body_stream_state = request_state.into_body_stream_state().await;
@@ -141,13 +161,17 @@ the `experimental_websocket` PDK feature. For full coverage see the **pdk-websoc
 
 ## Approach 2: Stop Iteration (PDK 1.8+)
 
-Use the `enable_stop_iteration` feature to simultaneously read and modify headers and body content. This approach supports bodies up to 1 MB only.
+Use the `enable_stop_iteration` feature to simultaneously read and modify headers and body content.
+Omni Gateway buffers the complete body before policy code runs. The default connection-buffer limit
+is 1 MB; configure `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` for a larger bounded stop-
+iteration input or rewrite output. Exceeding the configured limit terminates the request before the
+filter can complete.
 
 ### Enable Stop Iteration in Cargo.toml
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.2", features = ["enable_stop_iteration"] }
+pdk = { version = "1.10.0", features = ["enable_stop_iteration"] }
 ```
 
 ### Read and Write Headers and Body Together
@@ -239,13 +263,14 @@ one that hangs. Design response filters to be body-only on the affected runtimes
 - Source (event flow): https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-headers-event
 - Source (stop iteration): https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-headers-stop
 - Examples: Stream Payload Policy, Stop Iteration Example Policy
+- Release and payload-limit context: https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
 - **Files:**
-  - `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-headers.adoc`
-  - `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-headers-event.adoc`
-  - `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-headers-stop.adoc`
-- **Snapshot:** 2026-05-14
+  - `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-headers.adoc`
+  - `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-headers-event.adoc`
+  - `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-headers-stop.adoc`
+- **Snapshot:** 2026-08-24

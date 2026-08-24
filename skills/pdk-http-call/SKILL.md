@@ -73,6 +73,13 @@ failure. Practical rules:
 This registration step is not covered by the public docs — it surfaces only at deploy time, so
 treat it as mandatory whenever a policy makes an outbound call.
 
+## Timer Interoperability (PDK 1.10+)
+
+PDK 1.10 fixes context routing for HTTP calls triggered after awaiting a timer tick. Such calls are
+now routed through the request context rather than being incorrectly delivered to the root context
+handler. Use PDK 1.10 or later for WebSocket or request flows that await a tick and then call an
+HTTP service.
+
 ## Make HTTP Requests
 
 Access the defined service in the `Config` struct and perform requests via the HTTP client:
@@ -132,7 +139,8 @@ async fn configure(launcher: Launcher, Configuration(bytes): Configuration) -> R
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `bb0f3c6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-http-request.adoc`
-- **Snapshot:** 2026-04-23
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-http-request.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

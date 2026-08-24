@@ -54,7 +54,7 @@ For multi-replica deployments, configure shared storage (Redis). See example `pl
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `bb0f3c6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-data-storage.adoc`
-- **Snapshot:** 2026-04-23
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-data-storage.adoc`
+- **Snapshot:** 2026-08-24

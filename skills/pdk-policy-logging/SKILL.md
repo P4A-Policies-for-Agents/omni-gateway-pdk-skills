@@ -50,7 +50,7 @@ For more information about viewing Omni Gateway logs, see [Monitoring Omni Gatew
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-logging.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-logging.adoc`
+- **Snapshot:** 2026-08-24

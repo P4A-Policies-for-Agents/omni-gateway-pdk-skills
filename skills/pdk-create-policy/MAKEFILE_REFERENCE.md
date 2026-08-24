@@ -1,16 +1,18 @@
 # Makefile & Scripts Reference
 
-Reference files for the split-model policy project structure. When creating a new policy, **copy these from an existing policy** (e.g., `slack-request-verification`) rather than recreating them.
+Reference files for the split-model policy project structure. Use a **freshly generated PDK 1.10
+project** as the canonical source. Copying an older Makefile and only changing Cargo versions misses
+generated-project behavior added in PDK 1.10.
 
 ## Reference Policy
 
-Use `policies/slack-request-verification/` as the canonical source:
+Generate a temporary reference project with the current `anypoint-pdk-plugin`, then copy or compare
+the relevant files. Preserve project-specific business-group helpers after the generated baseline is
+in place.
 
 ```bash
-# From the new policy's parent directory:
-cp -r ../slack-request-verification/scripts ./scripts
-cp ../slack-request-verification/slack-request-verification-definition/Makefile <policy-name>-definition/Makefile
-cp ../slack-request-verification/slack-request-verification-flex/Makefile <policy-name>-flex/Makefile
+# Compare the generated reference with the target before copying:
+diff -u <generated-1.10-project>/Makefile <policy-name>-flex/Makefile
 ```
 
 ## What These Files Provide
@@ -45,6 +47,22 @@ Targets:
 - `publish` — Publish implementation to Exchange as dev version
 - `release` — Publish implementation to Exchange (production)
 - `release-interactive` — Select BG interactively, then release
+
+PDK 1.10-generated implementation projects also provide:
+
+- `make test TEST=<test_name>` to run one integration test
+- Automatic disconnected registration for `playground/config/registration.yaml` and
+  `tests/config/registration.yaml` when absent
+- A playground image parameterized with `PDK_TEST_FLEX_IMAGE_NAME` and
+  `PDK_TEST_FLEX_IMAGE_VERSION`
+These are generated-file features. Updating `pdk`, `pdk-test`, or `cargo-anypoint` does not inject
+them into an existing Makefile or Compose file.
+
+For **unified-model projects generated with PDK 1.10 or later** only, publish and release reuse an
+unchanged policy definition by default. Set `SKIP_UNCHANGED_DEFINITION=false` to publish a new
+definition. Do not backport this flag to an earlier-generated project; the feature is unsupported
+for projects created before PDK 1.10. Split-model implementation Makefiles publish the policy WASM
+and do not own this unified definition-reuse setting.
 
 ## `.gitignore` entries
 

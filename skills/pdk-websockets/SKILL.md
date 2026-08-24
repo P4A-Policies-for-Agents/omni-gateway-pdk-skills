@@ -1,6 +1,6 @@
 ---
 name: pdk-websockets
-description: Use when implementing PDK policies for WebSocket APIs using pdk::websockets library (1.9.0 open beta), covering FilterBuilder upgrade hooks (on_create, on_upgrade_upstream, on_upgrade_downstream, on_done), frame boundary accumulation with Decoder/Encoder, client/server bidirectional frame processing, and pdk-unit WebSocket upgrade testing with UnitFrame and UpgradeConnection.
+description: Use when implementing PDK WebSocket policies with the open-beta pdk::websockets library, including FilterBuilder upgrade hooks, response-only filters, frame accumulation, Decoder/Encoder, PDK 1.10 HTTP calls and timer ticks in WebSocket flows, shared configure references, and pdk-unit upgrade testing.
 ---
 
 # Skill: Support WebSocket APIs
@@ -18,7 +18,7 @@ manipulation also needs the low-level `ll` feature:
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.2", features = ["ll", "experimental_websocket"] }
+pdk = { version = "1.10.0", features = ["ll", "experimental_websocket"] }
 ```
 
 ## Configure WebSocket Handlers
@@ -62,21 +62,50 @@ pub async fn configure(launcher: Launcher) -> Result<()> {
 }
 ```
 
+## PDK 1.10 WebSocket Flow Capabilities
+
+PDK 1.10 adds support for awaiting HTTP calls and timer ticks inside WebSocket flows. References to
+structs created in `configure` can also be shared with WebSocket filters, so clients, timers, and
+immutable configuration do not need to be rebuilt per frame. The runtime also fixes routing for an
+HTTP call made after awaiting a timer tick: it now uses the request context rather than the root
+context handler.
+
+`FilterBuilder` can now build a response-only filter and chain `on_done` without requiring a request
+hook:
+
+```rust
+let handler = FilterBuilder::new()
+    .on_create(|| SessionState::default())
+    .on_response(handle_response)
+    .on_done(|state: SessionState| {
+        pdk::logger::info!("response-only filter completed: {}", state.events);
+    })
+    .build();
+```
+
+WebSocket support remains open beta under `experimental_websocket`.
+
 ## Supported Frame Types
 
-`FrameType` variants: `Text`, `Binary`, `Close`, `Ping`, `Pong`.
+`FrameType` is non-exhaustive. PDK 1.10 defines `Text`, `Binary`, `Continuation`, `Ping`, `Pong`,
+`ConnectionClose`, and `Reserved`; include a wildcard arm when matching it.
 
-**Pass control frames (`Close`, `Ping`, `Pong`) through unmodified** to preserve WebSocket protocol
-integrity. Only transform `Text` / `Binary` data frames.
+**Pass control frames (`ConnectionClose`, `Ping`, `Pong`) and reserved frames through unmodified**
+to preserve WebSocket protocol integrity. The examples below perform frame-level transformations:
+they transform `Text` frames and pass `Continuation` frames through. If a transformation requires
+the complete logical message, track the initial frame plus its continuations and preserve FIN and
+opcode semantics when re-encoding.
 
 ## Maintain Frame Boundaries
 
-WebSocket frames may be fragmented across multiple network chunks. Your handler must process
-**complete** messages regardless of arrival pattern:
+WebSocket frames may be split across multiple network chunks. Your handler must process only
+**complete frames** regardless of the chunks in which their bytes arrive:
 
 1. Accumulate bytes with `state.accumulate().await` when no complete frame is available yet.
 2. Track remainder (leftover partial-frame) bytes between loop iterations.
-3. Parse complete frames only once sufficient data has arrived.
+3. Parse complete frames only once sufficient data has arrived. This network-level accumulation is
+   separate from reassembling a logical message fragmented into `Text`/`Binary` plus `Continuation`
+   frames.
 
 ## Process Client → Server Frames (Upstream)
 
@@ -195,8 +224,9 @@ fn text_frames_are_prefixed_with_counter() {
 }
 ```
 
-- `UnitFrame::text(payload, fin)`, `::binary(payload, fin)`, `::ping()`, `::pong()`, `::close()`.
-- `UnitFrameType`: `Text`, `Binary`, `Ping`, `Pong`, `Close`.
+- `UnitFrame::text(payload, fin)`, `::binary(payload, fin)`, `::continuation(payload, fin)`,
+  `::ping()`, `::pong()`, `::connection_close()`.
+- `UnitFrameType`: `Text`, `Binary`, `Continuation`, `Ping`, `Pong`, `ConnectionClose`, `Reserved`.
 - `conn.client().send_to_server(frame)` / `conn.server().send_to_client(frame)`.
 - `conn.server().next()` / `conn.client().next()` — pull the next forwarded frame.
 - `t.set_chunk_size(n)` — force TCP fragmentation to test partial-frame accumulation. (Default
@@ -206,7 +236,15 @@ fn text_frames_are_prefixed_with_counter() {
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-websocket
 - pdk-unit WebSocket testing: https://docs.mulesoft.com/pdk/latest/policies-pdk-unit#test-websocket-policies
-- Example: https://github.com/mulesoft/pdk-custom-policy-examples/tree/1.9.0/websocket
+- Example: https://github.com/mulesoft/pdk-custom-policy-examples/tree/1.10.0/websocket
+- Release notes: https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+
+## Source Ref
+
+- **Repo:** `mulesoft/docs-gateway`
+- **Branch:** `latest`
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-websocket.adoc`
+- **Snapshot:** 2026-08-24
 
 ## Related Skills
 

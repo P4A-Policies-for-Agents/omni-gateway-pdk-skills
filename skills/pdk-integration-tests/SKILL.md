@@ -12,7 +12,9 @@ This skill covers how to write integration tests for PDK custom policies using t
 ## Prerequisites
 
 - Docker must be installed
-- Omni Gateway must be registered in Local Mode (registration.yaml in `tests/config/`)
+- A PDK 1.10-generated project creates a disconnected Local Mode registration automatically when
+  `tests/config/registration.yaml` is absent. Older projects need manual registration or the 1.10
+  Makefile target backported.
 
 ## Integration Tests Directory Structure
 
@@ -31,11 +33,13 @@ tests
 
 ## Register Omni Gateway for Testing
 
-A `registration.yaml` file must exist in `<root-directory>/tests/config`. Create it by running the Omni Gateway registration command in that directory, or move an existing one there.
+A `registration.yaml` file must exist in `<root-directory>/tests/config`, but PDK 1.10-generated
+projects create one automatically when `make test` runs and the file is absent. You may still place
+a manually registered file there to override automatic disconnected registration.
 
 **Important:** Run only the registration command — do not run the Docker start command (`make test` handles that).
 
-The registration file is `.gitignore`d. Create a different one on each device.
+The registration file is `.gitignore`d and device-specific.
 
 ## Configure the Policy Under Test
 
@@ -71,6 +75,15 @@ make test
 ```
 
 The `make test` command compiles the policy before running the tests.
+
+For projects generated with PDK 1.10, run one test by name:
+
+```sh
+make test TEST=<test_name>
+```
+
+`TEST` selection and automatic registration are generated-Makefile behavior. Updating only the
+`pdk-test` dependency in an older project does not add them.
 
 ## Configure an httpmock Service
 
@@ -419,7 +432,8 @@ Use Omni Gateway **1.12.1** or later for integration tests.
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `8cafed6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-integration-tests.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-integration-tests.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

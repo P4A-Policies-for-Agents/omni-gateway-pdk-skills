@@ -557,7 +557,7 @@ flattened via `.unwrap_or_default()`).
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `8cafed6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-create-schema-definition.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-create-schema-definition.adoc`
+- **Snapshot:** 2026-08-24

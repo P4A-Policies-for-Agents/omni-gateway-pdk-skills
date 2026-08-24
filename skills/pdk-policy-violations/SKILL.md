@@ -62,7 +62,7 @@ pub fn get_client_id(&self) -> Option<&str>;
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `bb0f3c6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-violations.adoc`
-- **Snapshot:** 2026-04-23
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-violations.adoc`
+- **Snapshot:** 2026-08-24

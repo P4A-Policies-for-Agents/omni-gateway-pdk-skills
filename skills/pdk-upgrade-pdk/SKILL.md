@@ -1,6 +1,6 @@
 ---
 name: pdk-upgrade-pdk
-description: Use when upgrading PDK components including Anypoint CLI PDK plugin, PDK Rust libraries (pdk, pdk-test, pdk-unit), Anypoint Cargo plugin, policy Rust version, and WASI target migration from wasm32-wasi to wasm32-wasip1, with version-specific guidance for 1.8.0 resolver and metadata struct changes, 1.9.0 FIPS flag/WebSocket/pdk-unit chunk size, and 1.9.1 JWT+XML Cargo feature gating and jwt-fips.
+description: Use when upgrading PDK components and generated projects, including pdk, pdk-test, pdk-unit, cargo-anypoint, Rust/WASI, PDK 1.10 APIs and fixes, and Makefile/Compose features that a dependency bump does not add to older projects.
 ---
 
 # Skill: Upgrading PDK
@@ -40,11 +40,42 @@ anypoint-cli-v4 plugins:uninstall anypoint-cli-pdk-plugin
 anypoint-cli-v4 plugins:install anypoint-pdk-plugin
 ```
 
-## Upgrading to 1.9.2 (current stable)
+## Upgrading to 1.10.0 (current stable)
 
-PDK 1.9.2 (released July 21 2026) is the current stable release. Upgrade to `1.9.2` for the `pdk`, `pdk-test`, and `pdk-unit` libraries, and for the `cargo-anypoint` plugin. Keep all four in lockstep.
+PDK 1.10.0 (released August 20 2026) is the current stable release. Upgrade `pdk`, `pdk-test`,
+`pdk-unit`, and `cargo-anypoint` together.
 
-- **1.9.2** — Testing/development dependency updates for security and unmaintained-crate advisories. These affect **only** the PDK testing framework and are **not** included in the compiled policy WASM. No code changes required to upgrade.
+Library/API changes included by the dependency upgrade:
+
+- Cache LRU eviction and native global TTL.
+- Standalone RFC 9728 `ProtectedResourceMetadataBuilder`.
+- `pdk-unit` policy chains via `FilterChainBuilder` and `set_log_level` on test constructors.
+- WebSocket HTTP-call and timer-tick support, configure-context references, and response-only
+  `FilterBuilder::build`/`on_done` fixes.
+- Correct request-context routing for HTTP calls made after timer ticks.
+- RFC 8259 JSON escape validation, contracts-collector retry/error handling, and optimized script
+  evaluation setup.
+
+Some generated-project changes require explicit backports for policies created before 1.10:
+
+| PDK 1.10 change | Is a dependency bump sufficient? |
+|---|---|
+| Cache LRU/TTL, standalone PRM, pdk-unit chain/log APIs | Yes |
+| WebSocket, timer/HTTP, JSON, contracts, and script fixes | Yes |
+| `make test TEST=<test_name>` | No - backport the Makefile |
+| Automatic disconnected registration | No - backport the Makefile |
+| Parameterized playground image | No - backport Compose/Makefile |
+| Reuse an unchanged policy definition (unified model only) | No - available only to projects generated with PDK 1.10+; do not backport the flag |
+
+Compare older projects with a freshly generated PDK 1.10 project rather than reconstructing these
+targets from memory. The unchanged-definition optimization is the exception: upgrading or copying
+the generated Makefile setting does not enable it for a project created with an earlier PDK.
+
+## Upgrading to 1.9.2
+
+PDK 1.9.2 (released July 21 2026) updated testing/development dependencies for security and
+unmaintained-crate advisories. These affect only the testing framework and are not included in the
+compiled policy WASM. No code changes are required for this intermediate upgrade.
 
 ## Upgrading to 1.9.1: What's New
 
@@ -126,10 +157,11 @@ Update the `pdk` dependency and `pdk-test` dev-dependency versions in `Cargo.tom
 
 ```toml
 [dependencies]
-pdk = { version = "1.9.2" }
+pdk = { version = "1.10.0" }
 
 [dev-dependencies]
-pdk-test = { version = "1.9.2" }
+pdk-test = { version = "1.10.0" }
+pdk-unit = { version = "1.10.0" }
 ```
 
 **Note:** In versions earlier than 1.6.0, dependencies included `registry = "anypoint"`. When upgrading from pre-1.6.0, remove the `registry = "anypoint"` field since PDK libraries moved to [crates.io](https://crates.io/crates/pdk) in 1.6.0.
@@ -141,7 +173,7 @@ pdk-test = { version = "1.9.2" }
 
 ```makefile
 install-cargo-anypoint:
-	cargo install cargo-anypoint@1.9.2
+	cargo install cargo-anypoint@1.10.0
 ```
 
 3. Run:
@@ -205,8 +237,8 @@ setup: install-cargo-anypoint ## Setup all required tools to build
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.9/modules/ROOT/pages/policies-pdk-upgrade-pdk.adoc`
-- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1 + 1.9.2)
-- **Snapshot:** 2026-07-28
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-upgrade-pdk.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1 through 1.10.0)
+- **Snapshot:** 2026-08-24

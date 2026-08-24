@@ -2,8 +2,9 @@
 mod generated;
 
 use anyhow::Result;
-use pdk::cache::{Cache, CacheBuilder, CacheError};
+use pdk::cache::{Cache, CacheBuilder, CacheError, EvictionStrategy, LruStrategy};
 use pdk::hl::*;
+use std::time::Duration;
 
 const MAX_CACHE_ENTRIES: usize = 100;
 
@@ -47,6 +48,10 @@ async fn configure(launcher: Launcher, cache_builder: CacheBuilder) -> Result<()
 
     let cache = cache_builder
         .new("example-id".to_string())
+        // FIFO is the default. One LRU shard gives deterministic global ordering.
+        .eviction_strategy(EvictionStrategy::Lru(LruStrategy::default().with_shards(1)))
+        // PDK 1.10+ applies this TTL uniformly to all entries in the cache.
+        .ttl(Duration::from_secs(300))
         .max_entries(MAX_CACHE_ENTRIES)
         // .shared() // if uncommented the cache won't be isolated to the current policy.
         .build();

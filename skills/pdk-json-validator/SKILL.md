@@ -90,6 +90,9 @@ async fn configure(launcher: Launcher, Configuration(_configuration): Configurat
 
 For very large bodies, call `validate_chunk` once per chunk instead of buffering, setting `end_of_stream` to `true` only on the last chunk.
 
+PDK 1.10 fixes JSON string-escape validation to match RFC 8259. This is a correctness fix to the
+existing validator; it does not require a new option or builder method.
+
 ## Initialize from Policy Configuration
 
 If limits come from a policy schema (GCL), parse the configuration and build the `JsonValidatorBuilder` in the `#[entrypoint]` function. Map your `config::Config` fields to the builder methods. Wrap the validator in `std::rc::Rc` or `std::sync::Arc` for shared ownership across closures.
@@ -101,7 +104,8 @@ If limits come from a policy schema (GCL), parse the configuration and build the
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `f89b114`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-json-validator.adoc`
-- **Snapshot:** 2026-05-14
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-json-validator.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

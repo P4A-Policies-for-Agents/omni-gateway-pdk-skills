@@ -135,6 +135,12 @@ async fn my_async_task(timer: &Timer, lock: &TryLock) {
 
 Set lock `expiration` longer than total time for nested async calls. Call `refresh_lock` if awaiting results within the lock to prevent expiration.
 
+## HTTP Calls After Ticks (PDK 1.10+)
+
+PDK 1.10 fixes HTTP calls made after awaiting timer ticks so they route through the request context
+instead of the root context handler. Upgrade to 1.10+ when a request or WebSocket flow awaits a
+tick and then calls an HTTP service.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-timer
@@ -142,7 +148,8 @@ Set lock `expiration` longer than total time for nested async calls. Call `refre
 
 ## Source Ref
 
-- **Repo:** `mulesoft/docs-gateway` @ `bb0f3c6`
+- **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.8/modules/ROOT/pages/policies-pdk-configure-features-timer.adoc`
-- **Snapshot:** 2026-04-23
+- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-timer.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Snapshot:** 2026-08-24

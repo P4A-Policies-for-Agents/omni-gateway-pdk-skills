@@ -2,7 +2,8 @@
 
 // WebSocket Frame Counter Policy (open beta — pdk::websockets)
 //
-// Prefixes each upstream text frame with a sequential counter:
+// Prefixes each upstream initial text frame with a sequential counter and
+// forwards any continuation frames unchanged:
 //   "hello"  ->  "1:hello"
 //   "world"  ->  "2:world"
 //
@@ -18,6 +19,9 @@
 
 mod generated;
 
+// PDK 1.10 also permits HTTP calls, timer ticks, and references created in configure
+// to be used inside WebSocket flows. This template stays focused on frame handling.
+
 use anyhow::Result;
 use pdk::hl::*;
 use pdk::logger::info;
@@ -27,8 +31,8 @@ type BoxError = Box<dyn std::error::Error>;
 
 // Upstream handler (client -> server)
 //
-// Waits for complete WebSocket frames, prefixes text frames with
-// a counter and forwards all other frame types unchanged.
+// Waits for complete WebSocket frames, prefixes initial text frames with
+// a counter, and forwards continuations and all other frame types unchanged.
 async fn handle_upstream(mut state: UpstreamState, mut frame_count: u64) -> Result<(), BoxError> {
     let mut remainder = Vec::new();
 
