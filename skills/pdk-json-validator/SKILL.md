@@ -65,16 +65,29 @@ async fn request_filter(state: RequestState) -> Flow<()> {
         .build();
 
     let mut stream = body_stream_state.stream();
-    let mut buf = Vec::new();
+    let mut pending: Option<Vec<u8>> = None;
+
+    // Validate incrementally instead of buffering the whole body: feed each chunk as it
+    // arrives, marking `end_of_stream` only on the final one. Hold at most one chunk so the
+    // last one can be flagged as final. A buffered read (collecting all chunks first) would
+    // itself be capped by the connection buffer — see the note below.
     while let Some(chunk) = stream.next().await {
-        buf.extend_from_slice(&chunk.into_bytes());
+        if let Some(prev) = pending.take() {
+            if validator.validate_chunk(&prev, false).is_err() {
+                return Flow::Break(
+                    Response::new(400).with_body("Invalid or disallowed JSON payload"),
+                );
+            }
+        }
+        pending = Some(chunk.into_bytes());
     }
 
-    match validator.validate_chunk(&buf, true) {
+    // The last chunk (if any) is `end_of_stream`.
+    match validator.validate_chunk(&pending.unwrap_or_default(), true) {
+        Ok(ValidationResult::Complete) => Flow::Continue(()),
         Ok(ValidationResult::Incomplete) => {
             Flow::Break(Response::new(400).with_body("Incomplete JSON payload"))
         }
-        Ok(ValidationResult::Complete) => Flow::Continue(()),
         Err(_) => Flow::Break(Response::new(400).with_body("Invalid or disallowed JSON payload")),
     }
 }
@@ -88,7 +101,7 @@ async fn configure(launcher: Launcher, Configuration(_configuration): Configurat
 }
 ```
 
-For very large bodies, call `validate_chunk` once per chunk instead of buffering, setting `end_of_stream` to `true` only on the last chunk.
+For very large bodies, call `validate_chunk` once per chunk instead of buffering, setting `end_of_stream` to `true` only on the last chunk (as the Full Example does). A buffered read — collecting every chunk first — is itself capped by the per-connection Envoy connection buffer (`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`), so incremental per-chunk validation is the way to handle payloads too large to buffer.
 
 PDK 1.10 fixes JSON string-escape validation to match RFC 8259. This is a correctness fix to the
 existing validator; it does not require a new option or builder method.

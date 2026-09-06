@@ -85,9 +85,15 @@ let status = headers_state.status_code();
 
 ### Read and Write Request Bodies
 
-**Default event-flow limit:** `into_body_state()` is documented for payloads up to 1 MB. Use the
-streaming state for larger input; changing the Omni connection buffer is not documented as raising
-this ordinary event-flow read limit.
+**Buffered reads are bounded by the connection buffer.** `into_body_state()` buffers the whole
+payload, so the readable size is capped by the **per-connection** Envoy connection buffer,
+`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` (managed Flex Gateway UI: **"Global connection buffer
+limit"**; 1 MB default, no hard ceiling other than host memory — 10 MB is a valid value). To read a
+whole payload larger than the default you have two options: **raise the connection buffer** to the
+maximum payload size, or — when the policy can process the payload a chunk at a time — use the
+**streaming** state and never buffer the whole body. The 1 MB figure is only the *default* buffer
+size, not a fixed read ceiling, and it is separate from the PDK <1.10 `set_body` **write** check
+discussed next.
 
 PDK version and gateway compatibility matter when `set_body` reaches or exceeds the old 1 MB check:
 
@@ -130,11 +136,15 @@ pub trait BodyHandler {
 For bodies too large to buffer, use the streaming body state **only when the operation can process
 each chunk independently**. Streaming is read-only by default (cannot write) and does not affect
 reading/writing headers. Per-chunk writing (`write_chunk` on the stream body state) exists only
-behind the `experimental` Cargo feature — see the `pdk-experimental-feature` skill; without that
-flag the stream is strictly read-only. If a decision needs bytes from a future chunk, retained data can still grow
-until it hits a buffer limit. Whole-document transformations that produce a replacement body need a
-declared maximum size, a chunk-compatible design, or an upstream service that performs the
-transformation; PDK 1.10 fails oversized writes more safely but does not remove this constraint.
+behind the aggregate `experimental` Cargo feature — see the `pdk-experimental-feature` skill; without
+that flag the stream is strictly read-only. Even with the flag, `write_chunk` is **not** an escape
+hatch from the buffer: it is not GA, each chunk write is still checked against the body-size guard,
+and the stream is still bounded by the per-connection connection buffer — so it does not let you
+rewrite a payload larger than the buffer. If a decision needs bytes from a future chunk, retained
+data can still grow until it hits the buffer limit. Whole-document transformations that produce a
+replacement body need a declared maximum size, a chunk-compatible design, or an upstream service that
+performs the transformation; PDK 1.10 fails oversized writes more safely but does not remove this
+constraint.
 
 ```rust
 let body_stream_state = request_state.into_body_stream_state().await;
@@ -164,10 +174,11 @@ the `experimental_websocket` PDK feature. For full coverage see the **pdk-websoc
 ## Approach 2: Stop Iteration (PDK 1.8+)
 
 Use the `enable_stop_iteration` feature to simultaneously read and modify headers and body content.
-Omni Gateway buffers the complete body before policy code runs. The default connection-buffer limit
-is 1 MB; configure `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` for a larger bounded stop-
-iteration input or rewrite output. Exceeding the configured limit terminates the request before the
-filter can complete.
+Omni Gateway buffers the complete body before policy code runs. The connection buffer is
+**per-connection** with a 1 MB default; configure `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`
+(managed Flex Gateway UI: **"Global connection buffer limit"**) for a larger bounded stop-iteration
+input or rewrite output — there is no hard ceiling other than host memory, and 10 MB is a valid
+value. Exceeding the configured limit terminates the request before the filter can complete.
 
 ### Enable Stop Iteration in Cargo.toml
 

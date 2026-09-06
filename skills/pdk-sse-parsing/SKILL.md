@@ -107,6 +107,24 @@ Unit-test `take_one_sse_event` directly ([[pdk-unit-tests]]): LF boundary, CRLF 
 event returns `None`, event with no `event:` line, `data:` with no space, multiple `data:` lines
 joined, and non-`data:` lines skipped.
 
+## Rewriting events back into the stream
+
+This skill covers the **read/parse** side. Emitting rewritten events back downstream is a separate,
+constrained problem:
+
+- **Never buffer the whole SSE body to rewrite it.** That breaks the streaming contract the client
+  depends on ([[pdk-runtime-model]]) and is capped by the **per-connection** Envoy connection buffer
+  (`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`, "Global connection buffer limit" in the managed
+  Flex Gateway UI) — a long-lived stream will exceed it.
+- **Per-chunk writing is experimental-only, and not an escape hatch.** The default stream body state
+  is read-only; `write_chunk` exists only behind the aggregate `experimental` Cargo feature, is not
+  GA, and each write is still checked against the body-size guard **and remains bounded by the same
+  per-connection connection buffer named above** — enabling it does not let a long-lived stream write
+  past that cap. See [[pdk-request-headers-bodies]] and [[pdk-experimental-feature]].
+- **Rewrite event-by-event, not payload-by-payload.** You can only decide on complete events as they
+  drain from the buffer above, so keep transformations local to a single event; anything that needs
+  the whole stream to decide its output cannot be done as a streaming rewrite.
+
 ## When NOT to use
 
 - **Binary streaming** (gRPC, WebSocket binary frames, raw chunked transfer) — different framing;

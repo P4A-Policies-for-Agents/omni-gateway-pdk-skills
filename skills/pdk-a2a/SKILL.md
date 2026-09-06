@@ -475,6 +475,16 @@ A2A v1 and the older v0.3 are **the same JSON-RPC envelope with different method
 
 Transcoding is a pure-rewrite policy — it never inspects user content, so it touches **every** method, not just the inspectable subset. Keep the full field map in one place (a `spec.md` alongside the implementation works well).
 
+The unary (non-SSE) params/results/enums rewrite buffers the **entire** converted payload, bounded
+by the per-connection Envoy buffer (`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`; managed Flex
+Gateway UI: **"Global connection buffer limit"**; no hard ceiling — bound by host memory, 10 MB is a
+valid value). PDK **< 1.10** enforces a 1 MB `set_body` check on the rewrite; PDK **≥ 1.10** on a
+fixed Omni reads the real buffer and fails an oversized rewrite gracefully. On PDK **< 1.10**, if an
+experimental body-limit bypass is enabled the check is skipped and an oversized response rewrite
+**panics** while an oversized request rewrite returns a **413** (see [[pdk-experimental-feature]]).
+Don't assume the transcode handles arbitrarily large payloads once buffered — raise the buffer to the
+maximum converted size instead.
+
 ## SSE Responses (`text/event-stream`)
 
 Streaming methods — `message/stream`, `tasks/stream`, `tasks/resubscribe` (Legacy) and `SendStreamingMessage`, `SubscribeToTask` (V1) — return SSE, one `message` event per JSON-RPC chunk. **Buffering breaks the streaming contract**; stream-rewrite or skip.
@@ -506,6 +516,11 @@ if resp_ct.starts_with("application/json") {
     // not an A2A response we know how to read — pass through
 }
 ```
+
+The `application/json` branch buffers the whole response to parse it, so it is capped by the
+per-connection Envoy buffer (`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`; managed Flex Gateway
+UI: **"Global connection buffer limit"**; memory-bound, 10 MB valid) — raise it if a policy must
+inspect larger buffered responses. SSE responses must be stream-rewritten, never buffered.
 
 For streaming where bytes have already left the gateway, **debit-after-the-fact**: the current response passes through; if a limit is exceeded *during* response accounting, drain the bucket so the **next** request is blocked. **Disable the upstream timeout** before entering body state when you expect SSE, or long-running tasks get cut off — use the PDK request handler's no-timeout control (see [[pdk-request-headers-bodies]] / [[pdk-timer]]).
 

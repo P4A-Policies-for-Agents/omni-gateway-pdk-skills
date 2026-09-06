@@ -10,6 +10,9 @@ async fn request_filter(request_state: RequestState) {
 
     // Only one 'BodyStreamState' or 'BodyState' can be awaited per request. Selecting the body stream state
     // enables reading the payload as chunks. This also enables to read payloads of sizes greater than the underlying buffer.
+    // Note: this streaming state is read-only unless the experimental 'write_chunk' is enabled (not GA). Either way,
+    // writes are bounded by the connection buffer ('FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES'): a 'set_body'
+    // (BodyState) replacement must fit in it whole, and per-chunk 'write_chunk' is still buffer-bounded.
     let body_stream_state = headers_state.into_body_stream_state().await;
     let mut stream = body_stream_state.stream();
 
@@ -24,6 +27,9 @@ async fn response_filter(response_state: ResponseState) {
 
     // Only one 'BodyStreamState' or 'BodyState' can be awaited per response. Selecting the body stream state
     // enables reading the payload as chunks. This also enables to read payloads of sizes greater than the underlying buffer.
+    // Note: this streaming state is read-only unless the experimental 'write_chunk' is enabled (not GA). Either way,
+    // writes are bounded by the connection buffer ('FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES'): a 'set_body'
+    // (BodyState) replacement must fit in it whole, and per-chunk 'write_chunk' is still buffer-bounded.
     let body_stream_state = headers_state.into_body_stream_state().await;
     let mut stream = body_stream_state.stream();
 

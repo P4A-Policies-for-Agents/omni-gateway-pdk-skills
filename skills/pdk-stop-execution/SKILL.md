@@ -52,10 +52,16 @@ synthetic one.
 
 Instead, buffer both in one transition with `into_headers_body_state().await` (requires the
 `enable_stop_iteration` feature). Envoy holds the request in the filter and never forwards it, so
-your `Flow::Break` always wins. The default buffer limit is 1 MB and can be changed with
-`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`; size it to the largest accepted body. PDK 1.10+
-with the corresponding Omni fix checks that configured limit and fails an oversized write cleanly,
-but the limit remains physical and finite. See [[pdk-request-headers-bodies]].
+your `Flow::Break` always wins. Envoy buffers the body in the **per-connection** connection buffer,
+sized by `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` (default ~1 MB; in managed Flex Gateway the
+UI field is **"Global connection buffer limit"**). There is no hard configuration ceiling — the max
+is bound mainly by the host's available memory (10 MB is a valid value). Size it to the largest
+accepted body. Note this Envoy connection buffer is a separate mechanism from the PDK **< 1.10**
+hardcoded 1 MB `set_body` write-check. PDK 1.10+ with the corresponding Omni fix reads the configured
+limit and **fails an oversized write gracefully** (no panic), but the limit remains physical and
+finite; on PDK < 1.10 an experimental body-limit bypass can instead **panic on an oversized response
+body or return a 413 on an oversized request body** (see [[pdk-experimental-feature]]). See
+[[pdk-request-headers-bodies]].
 
 ```rust
 // Terminating policy: atomic buffer, then answer. Envoy never forwards upstream.

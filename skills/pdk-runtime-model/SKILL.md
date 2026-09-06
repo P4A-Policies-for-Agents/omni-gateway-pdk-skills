@@ -63,13 +63,20 @@ belongs in the spec. Large bodies under buffered filters stall the request and b
 SSE and other streaming MIME types, **streaming is mandatory** — buffering breaks the streaming
 contract from the client's point of view.
 
-Ordinary `into_body_state()` event-flow reads remain documented up to 1 MB; larger input requires
-streaming. Stop iteration buffers the full body and is bounded by
-`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` (1 MB by default). PDK 1.10 with a compatible Omni
-Gateway also reads that configured limit when validating a replacement write and reports an
-oversized body safely, but it cannot remove the physical cap. Size the stop-iteration buffer for the
-largest possible rewritten output, or redesign the operation as truly per-chunk processing. See
-[[pdk-request-headers-bodies]].
+Buffered reads (`into_body_state()`) and stop iteration both hold the whole body, so they are bounded
+by the **per-connection** Envoy connection buffer, `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`
+(managed Flex Gateway UI: **"Global connection buffer limit"**; 1 MB default, no hard ceiling other
+than host memory — 10 MB is a valid value). To handle a payload larger than the default, either raise
+the connection buffer to the maximum size, or — when the operation can process the payload a chunk at
+a time — use the streaming state and never buffer the whole body. Oversized **writes** are
+version-dependent: PDK <1.10 enforces a 1 MB `set_body` check, and an experimental bypass of it can
+**panic** on an oversized response body or make Envoy return a **413** on an oversized request body
+(a hot-path panic source beyond the constructs in the checklist above); PDK 1.10 with a compatible
+Omni Gateway reads the configured limit and **fails the write gracefully** (no panic), but it cannot
+remove the physical cap. There is no GA chunked-rewrite facility — an experimental `write_chunk`
+exists but is still bounded by the buffer, so it is not a general escape hatch. Size a
+buffered/stop-iteration filter for the largest possible rewritten output, or redesign the operation
+as truly per-chunk processing. See [[pdk-request-headers-bodies]] and [[pdk-experimental-feature]].
 
 ### Multiple replicas, no shared memory
 Each Envoy replica loads its own filter instances. There is **no shared in-process state across

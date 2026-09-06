@@ -116,6 +116,11 @@ async fn response_filter(state: ResponseState, request_data: RequestData) -> Flo
 
 When modifying SSE events, ensure Content-Type remains `text/event-stream` and each event ends with `\n\n`.
 
+When *rewriting* SSE, emit event-by-event — never buffer the whole stream to rewrite it (it breaks
+the streaming contract and is capped by the per-connection connection buffer), and note that
+per-chunk writing is experimental-only (`write_chunk` behind the `experimental` feature). See
+[[pdk-sse-parsing]] and [[pdk-request-headers-bodies]].
+
 ## Body Modification & Content-Length
 
 When a policy modifies the request or response body, the original `Content-Length` header becomes stale. **Always remove it before writing the new body**, so the gateway falls back to chunked transfer encoding:
@@ -131,6 +136,16 @@ if let Err(e) = handler.set_body(new_body.as_bytes()) {
 ```
 
 Define `CONTENT_LENGTH_HEADER` as a module-level constant — do not sprinkle the literal string `"content-length"` through the code.
+
+**Size limit.** `set_body` replaces the whole body, which Envoy must buffer in full — so the write is
+bounded by the **per-connection** connection buffer, `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`
+(managed Flex Gateway UI: **"Global connection buffer limit"**; no hard ceiling — bound by host
+memory, 10 MB is a valid value). You can never write more than the buffer. Oversized-write behavior
+is version-dependent: PDK **< 1.10** enforces a 1 MB write check; an experimental bypass (e.g. the
+current MCP-transcoding path) skips it and **panics on an oversized response body or returns a 413 on
+an oversized request body**; PDK **≥ 1.10** on a fixed Omni reads the buffer and **fails the write
+gracefully** (no panic), the write still failing past the limit. Raising the buffer only lifts a
+finite ceiling. See [[pdk-request-headers-bodies]] and [[pdk-experimental-feature]].
 
 When constructing a **new response** (e.g., short-circuiting with `Flow::Break`), set `Content-Length` to the actual body size:
 

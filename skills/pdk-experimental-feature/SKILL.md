@@ -120,10 +120,26 @@ is substantially broader than body-stream writing and can increase API/behavior 
 Enables the aggregate set shown above, including WebSockets, metrics, contracts v2, experimental
 data-storage formats, and core/classy experimental APIs. Do not use it when a narrower flag works.
 
-`experimental_disable_body_limit_check` only removes a PDK guard. It can expose older failure modes:
-an oversized request rewrite can produce a 413 and an oversized response rewrite can panic on older
-PDK/gateway combinations. PDK 1.10 with the matching Omni fix checks the configured physical buffer
-more safely; no experimental flag makes rewrite size unbounded. See [[pdk-request-headers-bodies]].
+### `experimental_disable_body_limit_check`
+
+**Expected GA:** Unknown
+
+This flag only removes the PDK body-size guard. It does **not** remove the Omni/Envoy physical buffer
+limit, and no experimental flag makes rewrite size unbounded. The real-world case that reaches for it
+is a **large-body transcoding policy** — the latest MCP transcoding is the cited example — which
+enables the bypass and then writes the converted body.
+
+Failure modes when a write exceeds the buffer:
+
+- **PDK < 1.10 with the bypass:** the 1 MB check is skipped and the write is attempted. An oversized
+  **response** body **panics**; an oversized **request** body makes Envoy return a **413**.
+- **PDK 1.10 on an Omni with the matching fix:** it reads the configured buffer size and **fails the
+  oversized write gracefully** (no panic) — the write still fails past the limit.
+
+The correct fix for a legitimately larger payload is not this bypass but raising the Omni buffer,
+`FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` (managed Flex Gateway UI: **"Global connection buffer
+limit"**), to the maximum converted size. That limit is per connection with no hard ceiling other
+than host memory (10 MB is a valid value). See [[pdk-request-headers-bodies]].
 
 ### `experimental_metrics`
 

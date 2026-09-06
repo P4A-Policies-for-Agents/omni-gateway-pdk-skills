@@ -301,6 +301,29 @@ A quick map of the policy archetypes, so you can place a new policy and pick the
 | **PII detector** | request `params` + response `result` | **fail-closed** on detection (`-32602` req / `-32603` resp, often at HTTP 403) | masks PII even inside the error envelope |
 | **Telemetry / support** | classifies method; reads/strips token-metric sidecar fields on response | passive | enables SSE via no-timeout; terminal consumer of any token-metric chain |
 
+### Buffered bodies and the connection-buffer limit
+
+Several archetypes above read or rewrite a **whole** body, so they are bounded by Envoy's
+per-connection buffer, not only by JSON-RPC rules:
+
+- **MCP↔HTTP transcoding** buffers the entire converted REST response to wrap it as a
+  `CallToolResult`.
+- **Payload optimization** must buffer the whole `tools/call` response before it can shrink it
+  (HTML→Markdown, strip base64) — a payload already near the buffer can fail to read/rewrite before
+  optimization even runs.
+- The response filter's `application/json` branch (`into_body_state()` + parse) buffers the whole
+  response to inspect it.
+
+The buffer is **per connection**, sized by `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` (managed
+Flex Gateway UI: **"Global connection buffer limit"**; no hard ceiling — bound by host memory, 10 MB
+is a valid value). Raise it toward the maximum payload/converted size to handle larger bodies; it
+only lifts a **finite** cap. Oversized-write failure is version-dependent: PDK **< 1.10** enforces a
+1 MB `set_body` check; an experimental bypass — the **latest MCP transcoding** is exactly this case —
+skips it and **panics on an oversized response body or returns a 413 on an oversized request body**;
+PDK **≥ 1.10** on a fixed Omni reads the real buffer and **fails gracefully** (no panic — the
+transcode still fails past the limit). Never buffer an SSE (`text/event-stream`) response to rewrite
+it; stream-rewrite instead. See [[pdk-request-headers-bodies]] and [[pdk-experimental-feature]].
+
 ## Local-Mode and Failure-Mode Contract
 
 - The policy MUST load and serve from t=0 even when the control plane is unreachable.
