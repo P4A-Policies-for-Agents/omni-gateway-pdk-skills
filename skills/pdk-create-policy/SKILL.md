@@ -441,6 +441,13 @@ group_id = "<org-group-id>"
 definition_asset_id = { name = "<policy-name>", version = "1.0.0" }
 implementation_asset_id = "<policy-name>-flex"
 
+# Optional. Declares the MINIMUM Flex Gateway RUNTIME version this policy needs
+# — distinct from the `pdk` crate version under [dependencies]. Set it only when
+# the policy uses a gateway-side capability that landed in a specific Flex
+# release; omit it and the policy has no declared minimum. See note below.
+[package.metadata.flex]
+min-version = "1.11.0"
+
 [dependencies]
 # PDK 1.9.1+ gates the JWT and XML Validator libraries behind Cargo features
 # (default = ["jwt", "xml_validator"], both on). To shrink WASM or use the
@@ -469,6 +476,14 @@ strip = "debuginfo"
 - **Implementation directory naming**: The CLI names the implementation directory `<policy-name>-flex`, not `<policy-name>-implementation`.
 - **Plugin conflict**: The older `anypoint-cli-pdk-plugin` conflicts with the newer `anypoint-pdk-plugin`. Uninstall the old one before using `--project-mode`.
 - **Child BG publishing**: The CLI defaults to the root org context. To publish to a child BG, switch the CLI context first with `anypoint-cli-v4 conf organization <bg-id>`. The `select-bg.sh` script handles this automatically. Do NOT use the `--organization` flag — it has a CLI bug (TypeError).
+- **Declaring a minimum Flex runtime version**: `[package.metadata.flex] min-version = "X.Y.Z"` in
+  `Cargo.toml` states the minimum Flex Gateway *runtime* a policy requires — separate from the `pdk`
+  crate version, which is a build-time dependency. Set it when the policy relies on a gateway-side
+  feature only present from a given Flex release; a policy without the field has no declared minimum.
+  The examples repo drives its test matrix off this field (`PDK_TEST_FLEX_IMAGE_VERSION=1.11.0
+  ./.scripts/test.sh` skips any example whose declared `min-version` is higher than the image under
+  test), so keep it accurate — an understated value lets the policy be built against a Flex release
+  that lacks the feature.
 - **No `pdk::time` module**: PDK does not expose a time module. Use `std::time::SystemTime` for timestamps (it works in the WASM environment).
 - **Response body as bytes**: `Response::new(status).with_body()` expects `Vec<u8>`, not `&str`. Use `.into_bytes()` on strings.
 - **Header names are lowercase**: When reading headers via `handler.header("name")`, always use lowercase header names.
