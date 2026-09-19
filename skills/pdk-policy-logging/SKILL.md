@@ -1,6 +1,6 @@
 ---
 name: pdk-policy-logging
-description: Use when configuring logging in PDK custom policies using the pdk::logger macros (debug, info, warn, error) that generate log messages enriched with API instance ID, policy ID, and request ID in Omni Gateway logs, and for the convention to never log or return secrets — credentials, Authorization header values, tokens, client secrets, or raw config bytes.
+description: Use when configuring logging in PDK custom policies using the pdk::logger macros (debug, info, warn, error) that generate log messages enriched with API instance ID, policy ID, and request ID in Omni Gateway logs, and for the convention to never log or return secrets — credentials, Authorization header values, tokens, client secrets, or raw config bytes — plus the undocumented guaranteed-delivery idiom of logging at error! with a fixed prefix to bypass log-level filtering.
 ---
 
 # Skill: Configuring Policy Logging
@@ -63,6 +63,34 @@ These are conventions, not compile-time checks: grep your own `debug!`/`info!`/`
 calls and returned error strings for header values, decoded credentials, and payload bytes before
 shipping. See also [[pdk-coding-best-practices]] and [[pdk-metadata]] (`client_secret()`).
 
+## Guaranteed-delivery logging (undocumented / internal idiom)
+
+> **Caveat.** This is an internal MuleSoft convention, **not** a documented PDK feature. PDK has no
+> API to emit a message regardless of the configured log level; this idiom relies on operators
+> leaving `error!` (and `warn!`) unfiltered. Treat it as a workaround, not a supported channel.
+
+When a policy must emit an event that downstream log tooling (e.g. a Fluent Bit pipeline) will scrape
+even when the policy's log level is turned up, MuleSoft's own policies deliberately log at `error!`
+with a fixed, greppable prefix, because in practice `error!`/`warn!` are the levels operators leave
+enabled:
+
+```rust
+const ALERT_LOG_PREFIX: &str = "[alertLog]";
+
+// Emitted at error! so it survives level filtering; the prefix makes it machine-scrapable.
+// log-lint: allow-level
+logger::error!("{ALERT_LOG_PREFIX} {json}");
+```
+
+Constraints if you use this:
+
+- **Never put a secret in the payload** — this line is high-visibility by design; the "Never log or
+  return secrets" rules above still apply in full.
+- **Use a fixed, unique prefix** so consumers can match it precisely, and keep the payload structured
+  (e.g. JSON) rather than free text.
+- **Reserve it for genuine always-surface events** (alerts), not routine tracing — abusing `error!`
+  for ordinary logs makes real errors harder to find and pollutes error dashboards.
+
 ## Log Output Format
 
 All log messages appear in the Omni Gateway logs in the following format:
@@ -85,4 +113,6 @@ For more information about viewing Omni Gateway logs, see [Monitoring Omni Gatew
 - **Snapshot:** 2026-09-19
 - **Note:** the "Never log or return secrets" conventions are field-derived (informed by a
   credential-redaction fix in MuleSoft's own auth policies), not from the docs page; log-level
-  configurability is documented under the local-debug logging config.
+  configurability is documented under the local-debug logging config. The "Guaranteed-delivery
+  logging" `error!`-prefix idiom is undocumented — observed in MuleSoft's internal
+  `microgateway-hybrid-policies` (`libs/alerts-core`).

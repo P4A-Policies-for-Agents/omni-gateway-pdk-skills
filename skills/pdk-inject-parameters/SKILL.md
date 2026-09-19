@@ -1,6 +1,6 @@
 ---
 name: pdk-inject-parameters
-description: Use when injecting parameters into PDK policy entrypoint and wrapped functions, including Configuration, Metadata, HttpClient, CacheBuilder, StreamProperties, PolicyViolations, RateLimitBuilder for entrypoint, and RequestState, ResponseState, RequestData, Authentication for wrapped functions with simplified function references.
+description: Use when injecting parameters into PDK policy entrypoint and wrapped functions, including Configuration, Metadata, HttpClient, CacheBuilder, StreamProperties, PolicyViolations, RateLimitBuilder for entrypoint, and RequestState, ResponseState, RequestData, Authentication for wrapped functions with simplified function references, plus the undocumented internal LdapBuilder (pdk::ldap) and ReadinessInstance (pdk::metrics::readiness) injectables.
 ---
 
 # Skill: Injecting Parameters
@@ -65,6 +65,68 @@ async fn configure(launcher: Launcher, Configuration(bytes): Configuration) -> R
 }
 ```
 
+## Undocumented injectables (internal — use at your own risk)
+
+> **Caveat.** The two injectables below are used by MuleSoft's own production policies but are **not
+> in the public PDK docs**. Treat them as unsupported/unstable: they can change or be removed
+> without notice, and are absent from the official injectable list above. Documented here because
+> they were observed in shipping MuleSoft policies; prefer a documented alternative when one exists.
+
+### `LdapBuilder` — LDAP directory client (`pdk::ldap`)
+
+Injects a builder for authenticating credentials against an LDAP directory. Inject into
+`#[entrypoint]`, configure once, and pass the built `LdapClient` by reference into the request filter.
+
+```rust
+use pdk::ldap::{LdapBuilder, LdapClient, LdapError};
+
+#[entrypoint]
+async fn configure(
+    launcher: Launcher,
+    Configuration(bytes): Configuration,
+    ldap_builder: LdapBuilder,
+    policy_violations: PolicyViolations,
+) -> Result<()> {
+    let config: Config = serde_json::from_slice(&bytes)?;
+    let ldap: LdapClient = ldap_builder
+        .new()
+        .server_url(config.ldap_server_url)
+        .server_user_dn(config.ldap_server_user_dn)
+        .server_user_password(config.ldap_server_user_password)
+        .search_base(config.ldap_search_base)
+        .search_filter(config.ldap_search_filter)
+        .build()?;
+
+    launcher.launch(on_request(move |rs, auth| request_filter(rs, &ldap, auth))).await?;
+    Ok(())
+}
+
+// In the filter: ldap.authenticate_encoded(&credential).await returns Result<_, LdapError>
+// (LdapError::AuthenticationFailed / RequestFailed / ServerError).
+```
+
+### `ReadinessInstance` — defer the "ready" signal until async init completes (`pdk::metrics::readiness`)
+
+Injects a readiness handle so a policy that needs async startup work (fetch JWKS, validate contracts)
+can hold off signaling readiness until that work succeeds, rather than reporting ready the moment
+`configure` returns.
+
+```rust
+use pdk::metrics::readiness::{Readiness, ReadinessInstance};
+
+#[entrypoint]
+async fn configure(launcher: Launcher, readiness: ReadinessInstance, /* ... */) -> Result<()> {
+    // ... kick off async init (JWKS fetch, contract load) ...
+    // Call readiness.ready() exactly once, only after init has actually completed:
+    readiness.ready();
+    // Guard against calling it twice (track a `readiness_sent` bool in your state).
+    launcher.launch(/* ... */).await?;
+    Ok(())
+}
+```
+
+See [[pdk-runtime-model]] for why control-plane-independent, resilient startup matters.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-inject-parameters
@@ -74,4 +136,7 @@ async fn configure(launcher: Launcher, Configuration(bytes): Configuration) -> R
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
 - **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-inject-parameters.adoc`
-- **Snapshot:** 2026-08-24
+- **Snapshot:** 2026-09-19
+- **Note:** the `LdapBuilder` and `ReadinessInstance` injectables are undocumented — observed in
+  MuleSoft's internal `microgateway-policies` (`ldap_authentication`, `jwt_validation`,
+  `oauth2_token_introspection`), not on the public docs page.
