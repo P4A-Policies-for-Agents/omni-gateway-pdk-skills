@@ -1,6 +1,6 @@
 ---
 name: pdk-http-call
-description: Use when making HTTP calls from PDK custom policies to external services, including defining service parameters with format service in gcl.yaml, registering the service at Flex init so the request routes at runtime, injecting HttpClient into entrypoint or wrapped functions, and performing requests with path, headers, body, and HTTP methods.
+description: Use when making HTTP calls from PDK custom policies to external services, including defining service parameters with format service in gcl.yaml, registering the service at Flex init so the request routes at runtime, injecting HttpClient into entrypoint or wrapped functions, performing requests with path, headers, body, and HTTP methods, and configuring outbound TLS trust (the tls-outbound PolicyBinding with trustedCA or skipValidation) to call an HTTPS upstream signed by a private or self-signed CA.
 ---
 
 # Skill: Performing an HTTP Call
@@ -132,10 +132,54 @@ async fn configure(launcher: Launcher, Configuration(bytes): Configuration) -> R
 }
 ```
 
+## Calling an HTTPS upstream with a private/self-signed CA (outbound TLS trust)
+
+When a policy calls an HTTPS upstream whose certificate is signed by a private or self-signed CA,
+the request fails cert validation by default — and you **cannot** fix it by installing certs on the
+OS running Flex. Instead, attach outbound TLS config to the *service* the policy calls, via the
+built-in `tls-outbound` policy bound to a `Service`. This is gateway configuration, not Rust:
+
+```yaml
+# A Service pointing at the HTTPS upstream the policy will call.
+apiVersion: gateway.mulesoft.com/v1alpha1
+kind: Service
+metadata:
+  name: my-upstream
+  namespace: example
+spec:
+  address: https://secure-backend:443
+---
+# Outbound TLS trust for that Service.
+apiVersion: gateway.mulesoft.com/v1alpha1
+kind: PolicyBinding
+metadata:
+  name: my-upstream-tls
+spec:
+  targetRef:
+    kind: Service
+    name: my-upstream
+    namespace: example
+  policyRef:
+    name: tls-outbound
+  config:
+    skipValidation: false      # true disables validation entirely (dev only)
+    trustedCA: |               # PEM of the CA to trust for this upstream
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+```
+
+The policy code is unchanged — build a `Service` from the same `name`/`namespace` and call it with
+`HttpClient` as usual. Prefer `trustedCA` (trust a specific CA) over `skipValidation: true` (trust
+anything), which is only appropriate in the local playground. In `pdk-debug-local`/`pdk-test-locally`
+the same `Service` + `PolicyBinding` pair goes in the playground config so local runs mirror the
+gateway.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-http-request
 - Example: Simple OAuth 2.0 Validation Policy
+- Outbound TLS pattern: the `tls-calls` PDK example (`pdk-custom-policy-examples`)
 
 ## Source Ref
 

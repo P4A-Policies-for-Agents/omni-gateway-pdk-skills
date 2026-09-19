@@ -181,6 +181,37 @@ A useful suite covers at least three cases, in order of importance:
 For policies with multiple branches that are visibly different cost classes (sync allow, sync deny,
 async upstream call), add a fourth scenario per branch.
 
+## Benchmarking policies that call upstreams
+
+Many policies leave the gateway — token introspection, enrichment fetches, a cache-miss lookup.
+Every upstream call a policy dispatches routes through a **backend** you register on the tester,
+and the emulator runs the full dispatch path inside the timed `tester.request(...)`. The backend
+answers immediately, so the benchmark captures the cost of *making* the call (serialization,
+dispatch, response handling) — **not** real network latency. That is exactly what lets you compare
+variants by how many upstream calls they make: cache hit (0 calls) vs miss (1), single fetch vs
+fan-out.
+
+Register a backend per named upstream authority with `with_http_upstream_from_authority`
+(use `with_backend` only when the policy has a single unnamed default upstream):
+
+```rust
+fn introspection_backend(_req: UnitHttpRequest) -> UnitHttpResponse {
+    UnitHttpResponse::new(200).with_body(r#"{"active":true}"#)
+}
+
+fn tester() -> UnitTest {
+    UnitTestBuilder::default()
+        .with_config(CONFIG)
+        .with_http_upstream_from_authority("auth.internal:443", introspection_backend)
+        .with_entrypoint(my_policy::configure)
+}
+```
+
+Then give each `bench_function` a scenario that drives a different call count. The spread across
+those groups is the signal — it shows what each extra upstream call costs relative to the policy's
+in-process work. Because calls are counted-not-timed, do **not** read absolute upstream numbers as
+production latency; use them only to compare call-count variants of the same policy.
+
 ## `black_box` and ownership
 
 - `criterion::black_box(response.status_code())` (or any other return value) keeps the optimizer
@@ -270,7 +301,9 @@ For CI, redirect stdout to a file and grep the `time:` / `thrpt:` rows when summ
 
 ## Source Ref
 
-- **Snapshot:** 2026-06-30
+- **Snapshot:** 2026-09-19
 - **Derived from:** hands-on Criterion benchmarking of PDK body-transform policies through the
   `pdk-unit` in-process harness; the chunk-size pitfall and the inline-tester-construction caveat
-  are generalized field findings, not from a docs.mulesoft.com page.
+  are generalized field findings, not from a docs.mulesoft.com page. The upstream-backend section
+  (`with_http_upstream_from_authority`, calls-are-dispatch-cost) is derived from the `pii-redaction`
+  example's `BENCHMARKING.md` in `pdk-custom-policy-examples`.
