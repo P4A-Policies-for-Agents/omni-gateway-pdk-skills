@@ -77,7 +77,8 @@ can be turned on — never rely on level to hide sensitive data. Rules:
 
 These are conventions, not compile-time checks: grep your own `debug!`/`info!`/`warn!`/`error!`
 calls and returned error strings for header values, decoded credentials, and payload bytes before
-shipping. See also [[pdk-coding-best-practices]] and [[pdk-metadata]] (`client_secret()`).
+shipping. See also [[pdk-security-best-practices]] (the cross-cutting security checklist),
+[[pdk-coding-best-practices]] and [[pdk-metadata]] (`client_secret()`).
 
 ## Guaranteed-delivery logging (undocumented / internal idiom)
 
