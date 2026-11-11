@@ -131,5 +131,5 @@ For more information about viewing Omni Gateway logs, see [Monitoring Omni Gatew
   credential- and PII-redaction fixes in MuleSoft's own policies, including the public
   `a2a-pii-detector-policy` example in `mulesoft/pdk-custom-policy-examples`), not from the docs page; log-level
   configurability is documented under the local-debug logging config. The "Guaranteed-delivery
-  logging" `error!`-prefix idiom is undocumented — observed in MuleSoft's internal
-  `microgateway-hybrid-policies` (`libs/alerts-core`).
+  logging" `error!`-prefix idiom is undocumented — observed in MuleSoft's own
+  production policies.
