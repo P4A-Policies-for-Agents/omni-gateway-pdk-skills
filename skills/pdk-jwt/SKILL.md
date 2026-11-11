@@ -80,6 +80,24 @@ async fn configure(launcher: Launcher, Configuration(configuration): Configurati
 
 Initialize `SignatureValidator` in `#[entrypoint]` to catch configuration errors early.
 
+### Building an RSA key from a JWKS: accept padded base64url
+
+If you fetch a JWKS and turn each RSA key's `n` and `e` into a key yourself, note that RFC 7518
+specifies **unpadded** base64url, but some identity providers emit padded values (`...==`). A strict
+`URL_SAFE_NO_PAD` decoder rejects them. When that happens during key loading, the policy never
+becomes ready and **every request gets a 503**. Decode leniently:
+
+```rust
+use base64::{engine::general_purpose::{URL_SAFE, URL_SAFE_NO_PAD}, Engine};
+
+fn decode_b64url(s: &str) -> Result<Vec<u8>, base64::DecodeError> {
+    URL_SAFE_NO_PAD.decode(s).or_else(|_| URL_SAFE.decode(s))
+}
+```
+
+Also skip (and `warn!` about) a single undecodable key instead of failing the whole key set, so
+one bad entry doesn't take the policy down.
+
 ## Create a JWT Token
 
 Use `JwtGenerator` to create tokens:
@@ -163,3 +181,5 @@ properties:
 - **Branch:** `latest`
 - **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
 - **Snapshot:** 2026-08-24 (includes 1.9.1 `jwt`/`jwt-fips` Cargo features)
+- **Note:** the JWKS padded-base64url guidance (2026-11-11) is field-derived from a fix in
+  MuleSoft's own JWT validation policy, not from the docs page.

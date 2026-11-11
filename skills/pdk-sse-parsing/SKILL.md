@@ -1,6 +1,6 @@
 ---
 name: pdk-sse-parsing
-description: "Use when a PDK custom policy must parse Server-Sent Events (text/event-stream) in a streaming response body - LLM transcoding, streaming-API inspection or rewriting. Covers blank-line event boundaries, multi-line data fields, optional spaces, the data:[DONE] sentinel, and the buffer-drain loop."
+description: "Use when a PDK custom policy must parse Server-Sent Events (text/event-stream) in a streaming response body - LLM transcoding, streaming-API inspection or rewriting. Covers blank-line event boundaries, multi-line data fields, optional spaces, the data:[DONE] sentinel, the buffer-drain loop, fail-closed inspecting rewrites (PII masking or blocking mid-stream), and reading usage from stream properties after draining."
 ---
 
 # Skill: Parsing Server-Sent Events (SSE)
@@ -125,6 +125,75 @@ constrained problem:
   drain from the buffer above, so keep transformations local to a single event; anything that needs
   the whole stream to decide its output cannot be done as a streaming rewrite.
 
+### Inspecting rewrite (masking / blocking): fail closed, never await between chunks
+
+A policy that must *inspect* every event before it reaches the client (PII masking, content
+blocking) has a stronger contract than a cosmetic rewrite. The shape that works:
+
+```rust
+async fn handle_sse_response(headers_state: ResponseHeadersState, violations: &PolicyViolations) {
+    // The final length is unknown, so drop Content-Length and let Envoy stream chunked.
+    headers_state.handler().remove_header(CONTENT_LENGTH_HEADER);
+    let body = headers_state.into_body_stream_state().await;  // write_chunk: `experimental` feature
+    let mut stream = body.stream();
+    let mut buf = Vec::new();
+    let mut poisoned = false;
+
+    while let Some(chunk) = stream.next().await {
+        buf.extend_from_slice(chunk.bytes());
+        let mut out = Vec::new();
+        while let Some((event, consumed)) = take_one_raw_event(&buf) {  // keeps id:/event: lines
+            if !poisoned {
+                out.extend(inspect_event(event, &mut poisoned, violations)); // SYNC, no .await
+            }
+            buf.drain(..consumed);
+        }
+        if body.write_chunk(Chunk::new(out)).is_err() { return; } // client disconnected
+    }
+}
+```
+
+- **Never `.await` between reading a chunk and writing its output** (no outbound HTTP call per
+  event). While the filter is suspended, the body buffer keeps accumulating upstream bytes, so whole
+  events get lost, duplicated or garbled, and output lags by a chunk. Keep per-event inspection
+  synchronous. If a decision really needs a remote call, buffer and moderate the full response
+  instead (see the guardrail section in [[pdk-http-call]]).
+- **Fail closed with a poison flag.** If an event's payload can't be inspected (larger than your
+  inspection cap, or not valid UTF-8), set `poisoned = true`, emit one replacement event, and drop
+  every later event. Never forward uninspected bytes, and never decode lossily to "get past" a bad
+  payload.
+- **Report the failure in-stream.** The HTTP status and headers are already on the wire, so you
+  can't send a 403 anymore. Emit a protocol-level error event instead. For JSON-RPC (MCP, A2A):
+  `data: {"jsonrpc":"2.0","id":null,"error":{"code":-32603,"message":"Internal error","data":{"reason":"…"}}}`,
+  and also raise a policy violation ([[pdk-policy-violations]]).
+- Write one output chunk per input chunk, even an empty one, so backpressure follows the upstream.
+  Handle a leading UTF-8 BOM and lone-CR line endings as well as `\n` and `\r\n`.
+
+### Drain, then act on what other policies published
+
+A response-side policy that only needs a **summary** of the stream (for example token usage for
+rate limiting or billing) shouldn't parse it if another policy already extracted that data. Drain
+the stream without touching the bytes, and only then read the stream properties
+([[pdk-share-data-between-policies]]):
+
+```rust
+let body = headers_state.into_body_stream_state().await;
+let mut stream = body.stream();
+while stream.next().await.is_some() {}           // pass-through: bytes flow to the client untouched
+
+let read_u64 = |path: &[&str]| {
+    stream_props.read_property(path)
+        .and_then(|b| String::from_utf8(b).ok())
+        .and_then(|s| s.trim().parse::<u64>().ok())   // published as decimal text
+};
+if let Some(total) = read_u64(&["myorg.llm.tokens.total"]) {
+    charge(total);
+} // else: the producer didn't run or couldn't extract usage, so decide explicitly (skip or estimate)
+```
+
+Properties written by a policy earlier in the chain are complete only **after** the stream ends,
+so read them after the drain loop, not at response-headers time.
+
 ## When NOT to use
 
 - **Binary streaming** (gRPC, WebSocket binary frames, raw chunked transfer) — different framing;
@@ -136,3 +205,6 @@ constrained problem:
 
 - Generalized PDK pattern (SSE per the WHATWG/HTML `text/event-stream` spec). Not covered by the
   PDK docs as of this writing — treat the parsing rules above as the contract.
+- The fail-closed inspecting rewrite and the drain-then-read-properties idiom (2026-11-11) are
+  field-derived from MuleSoft's own MCP and LLM policies. `write_chunk` needs the `experimental`
+  Cargo feature in PDK 1.10.0.

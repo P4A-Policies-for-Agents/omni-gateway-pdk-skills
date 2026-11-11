@@ -1,6 +1,6 @@
 ---
 name: pdk-http-call
-description: Use when making HTTP calls from PDK custom policies to external services, including defining service parameters with format service in gcl.yaml, registering the service at Flex init so the request routes at runtime, injecting HttpClient into entrypoint or wrapped functions, performing requests with path, headers, body, and HTTP methods, and configuring outbound TLS trust (the tls-outbound PolicyBinding with trustedCA or skipValidation) to call an HTTPS upstream signed by a private or self-signed CA.
+description: Use when making HTTP calls from PDK custom policies to external services, including defining service parameters with format service in gcl.yaml, registering the service at Flex init so the request routes at runtime, injecting HttpClient into entrypoint or wrapped functions, performing requests with path, headers, body, and HTTP methods, caching an outbound OAuth/JWT-bearer access token with single-flight renewal and failure backoff, calling an external guardrail or moderation service with timeouts and fail-open/fail-closed handling, and configuring outbound TLS trust (the tls-outbound PolicyBinding with trustedCA or skipValidation) to call an HTTPS upstream signed by a private or self-signed CA.
 ---
 
 # Skill: Performing an HTTP Call
@@ -132,6 +132,66 @@ async fn configure(launcher: Launcher, Configuration(bytes): Configuration) -> R
 }
 ```
 
+## Caching an outbound access token (single-flight renewal)
+
+A policy that has to obtain a token before calling a backend (client credentials, an RFC 7523
+JWT-bearer assertion, a token exchange) must not mint one per request. Keep the token in a
+data-storage entry ([[pdk-data-storage]]) and let at most one in-flight request renew it, guarded by
+a `TryLock` (`pdk::lock`). Every other request keeps serving the cached token meanwhile.
+
+```rust
+const SERVE_MARGIN_SECS: u64 = 60;   // stop serving 60s before expiry
+const RENEW_MARGIN_SECS: u64 = 120;  // start renewing 120s before expiry
+
+// lock = lock_builder.new("token-renew".into())
+//            .expiration(Duration::from_millis(call_timeout_ms + 1_000)) // outlive one mint call
+//            .build();
+
+match cached_entry {
+    // Fresh: serve.
+    Some(e) if now < e.renew_at => Ok(e.token),
+    // Renewal window: one request renews, the rest keep serving.
+    Some(e) if now < e.serve_until => match lock.try_lock() {
+        None => Ok(e.token),
+        Some(_guard) => match mint_and_store().await {
+            Ok(t) => Ok(t),
+            Err(_) if now_secs() < e.serve_until => Ok(e.token), // renewal failed, old token still valid
+            Err(err) => Err(err),
+        },
+    },
+    // Nothing usable: mint, unless a failure window is open.
+    _ => mint_and_store().await,
+}
+```
+
+- `serve_until = expiry − 60s`, `renew_at = expiry − 120s`, so renewal starts while the old token
+  is still being served.
+- **Remember failures too.** Store a failure entry with a close time so that, under load, a broken
+  token endpoint isn't hit by every request. Use a fixed window (e.g. 30s) for non-retryable errors
+  (bad credentials, 4xx) and exponential backoff (1s → 30s cap) for retryable ones (timeout,
+  connection, 5xx). While the window is open, return the stored error without calling.
+- Write with `StoreMode::Cas(version)` and retry on `CasMismatch`, so two replicas sharing remote
+  storage don't clobber each other.
+- **A bad signing key or credential must not fail `configure`.** Turn it into a per-request auth
+  error (a 5xx or a 401 response from the filter), so the policy still loads and the misconfiguration
+  is visible on every call instead of the API silently losing its policy.
+- Record the auth-latency metric only on a real mint, not on cache hits.
+
+## Calling an external guardrail / moderation service
+
+A policy that sends the prompt or response to an external moderation or guardrail API (and blocks
+on its verdict) needs an explicit failure contract:
+
+| Concern | Do |
+|---|---|
+| Timeout | `.timeout(Duration::from_millis(config.timeout_ms))` on every call; never inherit an unbounded default |
+| Failure classes | classify into a closed set (auth, bad request, not found, timeout, connection, upstream 5xx), and use that class, not the raw error, in logs, metrics and any signal header |
+| `fail_open` config flag | `true`: continue unmoderated and carry the failure reason to the response filter (for a header or metric). `false`: reject with a 403 and a generic message. Make the flag explicit, defaulting to the safer choice for the use case |
+| Error text | cap previews of the service's response body (e.g. 200 chars); never include the API key, bearer token, or the moderated content itself |
+| SSE responses | response moderation needs the **complete** text, so the stream must be buffered and reassembled from the `data:` frames before calling. That removes incremental streaming for that route, so document it. Pass through (don't moderate an empty string) when no text can be recovered |
+
+Register the guardrail service at init like any other outbound call (above).
+
 ## Calling an HTTPS upstream with a private/self-signed CA (outbound TLS trust)
 
 When a policy calls an HTTPS upstream whose certificate is signed by a private or self-signed CA,
@@ -188,3 +248,6 @@ gateway.
 - **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-http-request.adoc`
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
 - **Snapshot:** 2026-08-24
+- **Note:** the token-caching and guardrail-call sections (2026-11-11) are field-derived from
+  MuleSoft's own LLM/auth policies, not from the docs page. They use only public 1.10.0 APIs
+  (`pdk::lock`, `pdk::data_storage`, `HttpClient`).

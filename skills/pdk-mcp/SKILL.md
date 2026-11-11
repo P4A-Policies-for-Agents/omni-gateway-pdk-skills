@@ -125,6 +125,57 @@ Notes and gaps to respect:
 
 Always preserve the original request `id` (use `null` if it can't be recovered) and `jsonrpc:"2.0"`.
 
+**Pre-parse rejections answer `"id": null`.** A parse error (`-32700`) or an invalid request
+(`-32600`), including a missing, `null`, boolean or object `id`, goes out as HTTP 200 with
+`"id": null` (JSON-RPC 2.0 §5). Never substitute a placeholder such as `0` or `1`: the client would
+correlate the error with a different request.
+
+## Upstream-backed `tools/call` (transcoder) — status mapping
+
+A policy that turns `tools/call` into an outbound REST call must decide what each **upstream** status
+becomes. On the MCP endpoint, HTTP statuses have **transport** meaning to MCP clients: 404 means "the
+session is gone, re-initialize", 401 starts OAuth discovery, and 202 means "no response body" (clients
+skip it and hang). SDK transports also throw on non-2xx and discard the body, so the model never sees
+your error text. Map the statuses like this:
+
+| Upstream status | HTTP to client | Body |
+|---|---|---|
+| 2xx (including 202, 204) | **200** | `result` with `isError: false`, upstream body as one `text` block (empty body gives `"text": ""`) |
+| 401, 403, 408, 429, 502, 503, 504 (transport) | **unchanged** | pass through as-is: no body read, no header touched, so `WWW-Authenticate`, `Retry-After` and `RateLimit-*` reach the client |
+| 3xx | **200** | JSON-RPC error `-32603`, `data.status` set to the code, plus a policy violation. Never follow a redirect, because that opens an SSRF hole |
+| any other 4xx / 5xx | **200** | `result` with `isError: true`, and drop the upstream `WWW-Authenticate` (it no longer belongs to an auth failure) |
+
+The `isError` text is **one** `text` block, because some clients read only the first block:
+
+```
+Upstream returned HTTP 500 (Internal Server Error); Retry-After: 30
+
+<upstream body, unchanged>
+```
+
+Add `; Retry-After: <v>` only when the header is non-blank, and omit the reason phrase for codes
+without one (`Upstream returned HTTP 520`). An empty or whitespace-only body leaves just the status
+line, never an empty string. A failed `set_body` is a gateway fault, so answer `-32603`, not the
+caller-error code `-32602`. When rewriting an upstream response that has a body, reset `:status` to
+200, because rewriting headers and body keeps the upstream status. When the upstream sent no body,
+build a fresh `Response` instead, because PDK refuses `set_body` on a bodyless upstream response.
+
+**`structuredContent`.** A tool that advertises an `outputSchema` in `tools/list` must return
+`structuredContent` on **every** successful result. MCP clients reject the result otherwise ("Tool
+has an output schema but did not return structured content"). Make it an opt-in per tool, and when
+it is on, always emit an **object**:
+
+| Upstream success body | `structuredContent` |
+|---|---|
+| JSON object | as-is |
+| JSON array | `{"items": [...]}`, kept as a parsed array, not an escaped string |
+| JSON scalar | `{"text": <value>}` |
+| non-JSON | `{"text": "<raw string>"}` |
+| empty / absent (204) | `{}` |
+
+Error results never carry `structuredContent`. Enabling it sends the body twice (text plus
+structured), so it roughly doubles the payload.
+
 ## The Request→Response Method-Threading Problem
 
 The MCP response body has **no method field**. A response-side policy that needs to know "is this a `tools/list` result?" has two options:
@@ -296,7 +347,7 @@ A quick map of the policy archetypes, so you can place a new policy and pick the
 | **Access control (identity-aware)** | same + caller identity (client-id contract or upstream auth) | deny-by-default; deny → `-32008` + violation | authz engine (e.g. Cedar); see [[pdk-token-introspection]], [[pdk-authentication]] |
 | **Tool-name mapping** | rewrites `tools/list` response names; reverses incoming `tools/call` `params.name` | **fail-open** (never blocks) | literal + regex with capture templates; round-trip must reverse cleanly |
 | **Payload optimization** | `tools/call` response `content[].text` | **fail-open** | HTML→Markdown, strip base64 blobs, collapse whitespace; skip below a min-size threshold |
-| **MCP↔HTTP transcoding** | `tools/call` → outbound HTTP to a REST backend, wrap response as `CallToolResult` | error → `-32603` | per-tool path/verb/headers/body as DataWeave; answers `ping` locally; see [[pdk-http-call]], [[pdk-dataweave]] |
+| **MCP↔HTTP transcoding** | `tools/call` → outbound HTTP to a REST backend, wrap response as `CallToolResult` | upstream status mapping above; 3xx / `set_body` failure → `-32603` | per-tool path/verb/headers/body as DataWeave; answers `ping` locally; see [[pdk-http-call]], [[pdk-dataweave]] |
 | **Transcoding router** | routes `tools/call`/`resources/read`/`prompts/get` to the right upstream | unknown entity → `-32602`; missing path → `-32000` | sets an upstream-selector header; answers `initialize` + `notifications/initialized` locally |
 | **PII detector** | request `params` + response `result` | **fail-closed** on detection (`-32602` req / `-32603` resp, often at HTTP 403) | masks PII even inside the error envelope |
 | **Telemetry / support** | classifies method; reads/strips token-metric sidecar fields on response | passive | enables SSE via no-timeout; terminal consumer of any token-metric chain |
@@ -364,6 +415,9 @@ Whether you derive these (Pattern B) or get them from a shared crate (Pattern A)
 | Mistake | Fix |
 |---|---|
 | Returning HTTP 4xx/5xx for a JSON-RPC failure | use **HTTP 200** with the error in-band (a deliberate 403 for client routing is the documented exception) |
+| Transcoder relays an upstream 404/400/500 as-is | map it to HTTP 200 with `isError: true`. Clients read 404 as "re-initialize" and drop non-2xx bodies; only the transport statuses pass through |
+| Placeholder `id: 0` on a parse error | `"id": null` |
+| `structuredContent` omitted on an empty success, or a JSON array flattened into a string | always an object: `{}`, `{"items": [...]}`, `{"text": ...}` |
 | Emitting an error response to a notification | notifications have no `id` — never respond |
 | Assuming JSON-RPC batch arrays parse | parsers are single-object; handle batch explicitly if needed |
 | Inventing `Mcp-Session-Id` / `MCP-Protocol-Version` handling | session/version is Flex routing + the server, not policy |
@@ -380,6 +434,7 @@ Whether you derive these (Pattern B) or get them from a shared crate (Pattern A)
 
 - "I'll buffer the SSE response so I can rewrite it" — no; stream-rewrite or skip.
 - "I'll return HTTP 400 for the JSON-RPC parse failure" — JSON-RPC errors are in-band at HTTP 200 (deliberate 403 aside).
+- "The backend returned 404, so I'll return 404" — on the MCP endpoint that tells the client its session is gone. Return HTTP 200 with `isError: true`.
 - "I'll send an error back for this `notifications/cancelled`" — notifications get no response, ever.
 - "I'll read the method off the response body" — there is no method on the response; thread it or infer from shape.
 - "I'll set the new body and move on" — strip `Content-Length` first or you'll get a 504.

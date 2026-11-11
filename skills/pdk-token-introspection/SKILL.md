@@ -1,6 +1,6 @@
 ---
 name: pdk-token-introspection
-description: Use when validating OAuth 2.0 tokens with TokenValidatorBuilder or serving RFC 9728 protected-resource metadata independently with PDK 1.10 ProtectedResourceMetadataBuilder, including credentials, cache settings, scopes, discovery responses, and 401 challenges.
+description: Use when validating OAuth 2.0 tokens with TokenValidatorBuilder or serving RFC 9728 protected-resource metadata independently with PDK 1.10 ProtectedResourceMetadataBuilder, including credentials, cache settings, scopes, discovery responses, 401 challenges, the request origin behind a proxy (x-forwarded-proto/host), and mapping introspection-endpoint errors (IdP 400) to 401 rather than 500.
 ---
 
 # Skill: Using OAuth 2.0 Token Introspection Library Functions
@@ -91,7 +91,22 @@ return Flow::Break(
   to the well-known endpoint; otherwise continue normal processing.
 - `unauthorized_response(origin, extra)` builds a 401 `WWW-Authenticate` challenge containing the
   `resource_metadata` URL.
-- `origin` must be the request origin in `scheme://authority` form.
+- `origin` must be the request origin in `scheme://authority` form. Behind a load balancer or
+  TLS-terminating proxy, the request's own scheme and authority are the gateway's internal ones, and
+  the advertised `resource` URL becomes unreachable for clients. Prefer the forwarded headers:
+
+```rust
+fn request_origin(handler: &dyn HeadersHandler, scheme: &str, authority: &str) -> String {
+    let scheme = handler.header("x-forwarded-proto").unwrap_or_else(|| scheme.to_string());
+    let authority = handler.header("x-forwarded-host").unwrap_or_else(|| authority.to_string());
+    format!("{scheme}://{authority}")
+}
+```
+
+- The builder appends the API base path to `origin` itself. Pass a bare `scheme://authority`. If you
+  pass a full consumer URL that already contains the path, the `resource` comes out with the base
+  path twice (`https://host/api/api`). Also keep a configured trailing slash in that URL as-is,
+  because clients compare `resource` exactly.
 
 ## Validate a Token
 
@@ -106,6 +121,26 @@ let result = validator
     .await
     .map_err(PolicyError::Introspection)?;
 ```
+
+### Map introspection failures to the right status
+
+When the introspection endpoint itself answers with an HTTP error, that is almost always an
+**invalid token**, not a gateway fault. Identity providers return `400` for malformed or `alg:none`
+tokens. Map it like this:
+
+`IntrospectionError` (`pdk::token_introspection`) variants map like this:
+
+| Introspection outcome | Client response |
+|---|---|
+| `Validation(TokenExpired / TokenRevoked / …)` | **401** with the `WWW-Authenticate` challenge (`unauthorized_response`, above) |
+| `HttpError { status: 403, .. }` | **403** |
+| `HttpError { status, .. }`, any other status (including the IdP's 400) | **401** with the challenge |
+| `RequestFailed(_)` (call didn't complete) | **401** with the challenge |
+| `ParseError(_)` (IdP answered, but not with a valid introspection document) | **500** |
+
+Return a **generic** body ("invalid token"). Never forward the identity provider's response body,
+because it can echo the token or reveal IdP internals. A blanket "any error is 500" mapping makes
+clients retry a bad token instead of re-authenticating.
 
 ## Register the Introspection Service at Init
 
@@ -128,3 +163,5 @@ contract in [[pdk-http-call]].
 - **API:** https://docs.rs/pdk/1.10.0/pdk/token_introspection/struct.ProtectedResourceMetadataBuilder.html
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
 - **Snapshot:** 2026-08-24
+- **Note:** the forwarded-origin, base-path-duplication and status-mapping guidance (2026-11-11) is
+  field-derived from fixes in MuleSoft's own OAuth/OpenID policies, not from the docs page.

@@ -72,6 +72,38 @@ async fn request_filter(request_state: RequestState, _config: &Config) {
 }
 ```
 
+#### Pattern: strip caller headers before injecting a credential
+
+A policy that injects a backend credential (an API key, or a client id and secret) should also let
+operators list caller headers to **remove**, for example the caller's own `Authorization`, so that
+the client's token never reaches the backend:
+
+```rust
+fn is_marked_for_removal(config: &Config, name: &str) -> bool {
+    config.headers_to_remove().iter().any(|h| h.eq_ignore_ascii_case(name)) // header names are case-insensitive
+}
+
+fn should_inject(handler: &dyn HeadersHandler, config: &Config) -> bool {
+    let target = config.header_name();
+    // A target header that is about to be removed must be re-injected, even with overwrite off.
+    config.overwrite() || handler.header(target).is_none() || is_marked_for_removal(config, target)
+}
+
+// In the request filter, in this order:
+let api_key = resolve_api_key(handler, config)?;   // 1. evaluate selectors that may READ a header being removed
+let inject = should_inject(handler, config);       // 2. decide against the ORIGINAL headers
+for name in config.headers_to_remove() {           // 3. remove (also when injection is skipped)
+    handler.remove_header(name);
+}
+if inject { handler.set_header(config.header_name(), &api_key); } // 4. inject
+```
+
+- Do the removal **even when injection is skipped**, because the removal is a security control in
+  its own right.
+- For a credential **pair** (id plus secret in two headers), if either destination header is listed
+  for removal, inject **both**. Never forward a caller-supplied half next to a gateway-supplied half.
+- An empty `headersToRemove` list must be a no-op.
+
 Envoy handles method, scheme, path, authority, and status as headers. Access via:
 
 ```rust
