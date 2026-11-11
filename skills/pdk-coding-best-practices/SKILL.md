@@ -247,6 +247,35 @@ Define a `POLICY_NAME` constant for consistent logging and telemetry:
 const POLICY_NAME: &str = "my-policy-name";
 ```
 
+### Bounded metric tags (cardinality)
+
+Every distinct tag value creates a new time series, so a tag value taken from the request lets any
+caller inflate the metrics backend. Build each tag value from a closed set or a bounded,
+normalized form:
+
+```rust
+const MAX_TAG_LEN: usize = 128;
+
+// Unknown JSON-RPC method → fixed bucket (and record the call as failed), never the raw string.
+let method_tag = if is_valid_method(method) { method } else { "invalid" };
+
+// Path tag without the query string (it carries ids, tokens, search terms).
+let path_tag = path.split_once('?').map_or(path, |(p, _)| p);
+
+// Free-form names (e.g. an MCP tool name): only on success, sanitized, truncated on a char boundary.
+fn bounded_tag(s: &str) -> String {
+    s.chars()
+        .take(MAX_TAG_LEN)
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .collect()
+}
+```
+
+- Set name-like tags (tool, model) only when the request **succeeded** in resolving them. A
+  rejected `tools/call` for `aaaa…` must not mint a series.
+- Truncate by `chars()`, never by byte slicing (`&s[..128]` panics mid-UTF-8).
+- Use fixed sentinels (`unknown`, `invalid`) for missing or out-of-set values.
+
 ### Shared Metrics Builder
 
 Use `RefCell<MetricsBuilder>` when metrics need to be accumulated across request and response filters:
@@ -365,8 +394,12 @@ Scaffolded projects (PDK 1.9.0+) ship an `AGENTS.md` documenting proxy-wasm runt
 - **Header names are case-insensitive.** Lowercase both sides before comparing (`name.to_ascii_lowercase()`). This is why the `CONTENT_LENGTH_HEADER` / `CONTENT_TYPE_HEADER` constants above are defined lowercase.
 - **`Flow::Break(response)` rejects, `Flow::Continue(())` allows.** Inverting these is a security hole — an auth filter that returns `Continue` on failure passes the unauthenticated request upstream.
 - **Decide explicitly how `HttpClient` errors are handled** (timeout, DNS failure, upstream 5xx). Fail-open vs fail-closed is a security decision — surface it in the policy config, do not silently swallow `.await` errors.
+- **Never `unwrap()` a parse of a header value.** Header values come from clients or upstreams and can be malformed. `content_type.parse::<mime::Mime>().unwrap()` panics the filter on a bad `Content-Type`. Use `let Ok(mime) = ct.parse::<mime::Mime>() else { /* record failure, pass through */ return Flow::Continue(()); };`.
+- **Mask capture groups, not the whole match, when the pattern has them.** For a configurable masking regex such as `password=(\w+)`, the user means "mask the value", not the key. If `regex.captures_len() > 1`, mask each group's span (`caps.iter().skip(1).flatten()`). Otherwise mask the whole match.
+- **Bound memory on large bodies.** Peak memory is per request and the WASM heap is shared by every in-flight request. Don't parse a multi-MB JSON body into a `serde_json::Value` just to read one field. Use a typed projection struct with only the fields you need (`#[derive(Deserialize)] struct Usage { total_tokens: u64 }`, with unknown fields ignored), or a bounded scanner. Pre-size buffers from `content-length` (`Vec::with_capacity`) instead of growing repeatedly. Cap decompression output at a fixed multiple of the input size, so a gzip bomb fails instead of exhausting the heap. Don't buffer a request at all when its routing key is already in the path or headers.
 
 ## Documentation Reference
 
 - Enhanced: 2026-03-28 — extracted from `rust-code-style` skill and enriched with patterns from `pdk-custom-policy-examples`
 - Updated: 2026-06-23 — added Common Pitfalls section (PDK 1.9.0 scaffolded `AGENTS.md`)
+- Updated: 2026-11-11 — bounded metric tags, panic-free header parsing, capture-group masking and memory-bounded bodies (field-derived from fixes in MuleSoft's own policies)

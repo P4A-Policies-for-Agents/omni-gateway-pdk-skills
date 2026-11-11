@@ -138,5 +138,5 @@ See [[pdk-runtime-model]] for why control-plane-independent, resilient startup m
 - **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-inject-parameters.adoc`
 - **Snapshot:** 2026-09-19
 - **Note:** the `LdapBuilder` and `ReadinessInstance` injectables are undocumented — observed in
-  MuleSoft's internal `microgateway-policies` (`ldap_authentication`, `jwt_validation`,
-  `oauth2_token_introspection`), not on the public docs page.
+  MuleSoft's own authentication policies (LDAP, JWT validation, OAuth 2.0 token introspection),
+  not on the public docs page.

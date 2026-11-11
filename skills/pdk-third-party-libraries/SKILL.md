@@ -75,7 +75,7 @@ Two practical requirements observed in MuleSoft's `aws-sigv4` FIPS crypto module
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-libraries
 - Example: Crypto Policy
-- Host FFI pattern: MuleSoft-internal `microgateway-hybrid-policies` `libs/aws-sigv4/src/fips_crypto.rs`
+- Host FFI pattern: observed in MuleSoft's own FIPS-mode AWS SigV4 signing code
   (undocumented; not from docs.mulesoft.com)
 
 ## Source Ref
@@ -85,4 +85,4 @@ Two practical requirements observed in MuleSoft's `aws-sigv4` FIPS crypto module
 - **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-libraries.adoc`
 - **Snapshot:** 2026-09-19
 - **Note:** the host foreign-function (`call_foreign_function`) section is undocumented — derived from
-  MuleSoft's internal `microgateway-hybrid-policies`, not the docs page.
+  MuleSoft's own production policies, not the docs page.

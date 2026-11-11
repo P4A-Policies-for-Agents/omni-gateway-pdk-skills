@@ -1,6 +1,6 @@
 ---
 name: pdk-policy-logging
-description: Use when configuring logging in PDK custom policies using the pdk::logger macros (debug, info, warn, error) that generate log messages enriched with API instance ID, policy ID, and request ID in Omni Gateway logs, and for the convention to never log or return secrets — credentials, Authorization header values, tokens, client secrets, or raw config bytes — plus the undocumented guaranteed-delivery idiom of logging at error! with a fixed prefix to bypass log-level filtering.
+description: Use when configuring logging in PDK custom policies using the pdk::logger macros (debug, info, warn, error) that generate log messages enriched with API instance ID, policy ID, and request ID in Omni Gateway logs, and for the convention to never log or return secrets or PII — credentials, Authorization header values, tokens or JWT principals, token hashes, header/body dumps, detected PII values, client secrets, or raw config bytes — plus the undocumented guaranteed-delivery idiom of logging at error! with a fixed prefix to bypass log-level filtering.
 ---
 
 # Skill: Configuring Policy Logging
@@ -56,8 +56,24 @@ can be turned on — never rely on level to hide sensitive data. Rules:
 - **Never echo raw config bytes.** On a config-parse failure, do not log or return
   `String::from_utf8_lossy(&bytes)` — policy configuration can contain sensitive parameters. Log the
   parse error alone.
-- **Prefer length/hash over value** whenever you must correlate a token across log lines — e.g.
-  `"token extracted (len={})"`, never the token itself.
+- **Log length or presence, not a hash.** If you must refer to a token across log lines, log
+  `"token extracted (len={})"` or a fixed `<redacted-token>` placeholder. A non-cryptographic hash
+  (or a short prefix) is still derived from the credential, so treat it as the credential.
+- **An identifier can be the credential.** Depending on the auth type, the "principal" or subject
+  a policy authorizes may be the raw bearer token or JWT itself (for example when authentication
+  is "other" or custom). Never log the principal blindly. Log `client_id` from
+  `AuthenticationHandler::authentication()` instead, and keep deny logs to action, resource and
+  client id at `debug!`.
+- **No header or body dumps.** Remove `debug!("{:?}", handler.headers())` and raw-body debug lines
+  before shipping. The headers carry `Authorization`, cookies and API keys, and the body may carry
+  passwords or PII.
+- **Don't carry the secret in your error type.** An error variant such as
+  `AuthHeaderWrong { value }` ends up in `{:?}` logs. Carry the kind instead
+  (`AuthHeaderWrong { auth_type }`).
+- **Detected PII is still PII.** A detector or masking policy must log and report only the PII
+  *type* and *position*, never the matched text, and must not log the request text around the
+  match. If a match struct is serialized (into a violation, response or log), skip the value
+  field: `#[serde(skip_serializing)] value: String`.
 
 These are conventions, not compile-time checks: grep your own `debug!`/`info!`/`warn!`/`error!`
 calls and returned error strings for header values, decoded credentials, and payload bytes before
@@ -110,9 +126,10 @@ For more information about viewing Omni Gateway logs, see [Monitoring Omni Gatew
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
 - **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-logging.adoc`
-- **Snapshot:** 2026-09-19
-- **Note:** the "Never log or return secrets" conventions are field-derived (informed by a
-  credential-redaction fix in MuleSoft's own auth policies), not from the docs page; log-level
+- **Snapshot:** 2026-11-11
+- **Note:** the "Never log or return secrets" conventions are field-derived (informed by
+  credential- and PII-redaction fixes in MuleSoft's own policies, including the public
+  `a2a-pii-detector-policy` example in `mulesoft/pdk-custom-policy-examples`), not from the docs page; log-level
   configurability is documented under the local-debug logging config. The "Guaranteed-delivery
-  logging" `error!`-prefix idiom is undocumented — observed in MuleSoft's internal
-  `microgateway-hybrid-policies` (`libs/alerts-core`).
+  logging" `error!`-prefix idiom is undocumented — observed in MuleSoft's own
+  production policies.

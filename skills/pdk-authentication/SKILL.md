@@ -35,6 +35,11 @@ pub struct AuthenticationData {
 }
 ```
 
+**`principal` may be the raw credential.** What an upstream authentication policy writes into
+`principal` depends on its auth type. For some types (for example a custom or "other" type that
+forwards the bearer value) it is the token or JWT itself. Never log `principal` or put it in an
+error. Use `client_id` as the loggable identifier, and see [[pdk-policy-logging]].
+
 ## Preserve existing authentication data
 
 Multiple authentication policies may run in the same filter chain — e.g. one sets
