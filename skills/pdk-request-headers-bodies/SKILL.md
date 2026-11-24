@@ -127,6 +127,14 @@ maximum payload size, or — when the policy can process the payload a chunk at 
 size, not a fixed read ceiling, and it is separate from the PDK <1.10 `set_body` **write** check
 discussed next.
 
+The official Read and Write Request Bodies page still states the 1 MB limit without the configurable
+buffer, and it does not mention `set_sized_body`. The buffer-limit and `set_sized_body` behavior here
+comes from the 1.11.0 release notes and crate sources.
+
+Awaiting `into_body_state()` is a cancellation point. During a request, a
+flow cancellation (see the "Flow Cancellation" section of the PDK configure-features docs) can leave that `.await` unresumed, so don't rely on code after it
+running for every request.
+
 PDK version and gateway compatibility matter when `set_body` reaches or exceeds the old 1 MB check:
 
 - PDK before 1.10 normally rejects a replacement larger than 1 MB. Some experimental paths bypass
