@@ -108,12 +108,19 @@ existing validator; it does not require a new option or builder method.
 
 ## Initialize from Policy Configuration
 
-If limits come from a policy schema (GCL), parse the configuration and build the `JsonValidatorBuilder` in the `#[entrypoint]` function. Map your `config::Config` fields to the builder methods. Wrap the validator in `std::rc::Rc` or `std::sync::Arc` for shared ownership across closures.
+If limits come from a policy schema (GCL), parse the configuration and build the `JsonValidatorBuilder` in the `#[entrypoint]` function. Map your `config::Config` fields to the builder methods. Wrap the validator in `std::rc::Rc` or `std::sync::Arc` for shared ownership across closures. If the configuration is invalid or incompatible, applying the policy fails before traffic reaches the API. Use the types the PDK API expects for your release.
+
+## Interpret Validation Errors
+
+If `validate_chunk` returns `Err`, reject the payload: the JSON may be malformed or violate a configured limit. Log the error at debug or warn level for operational detail; return a generic message to clients if you cannot expose parser details.
+
+The limits match the constraint types of the built-in JSON Threat Protection policy: https://docs.mulesoft.com/gateway/latest/policies-included-json-threat-protection. You can feed chunks as they stream, or buffer the full stream first and call `validate_chunk` once with `end_of_stream` set to `true`.
 
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-json-validator
 - Example: JSON Validation Policy Example
+- Related built-in policy: https://docs.mulesoft.com/gateway/latest/policies-included-json-threat-protection
 
 ## Source Ref
 

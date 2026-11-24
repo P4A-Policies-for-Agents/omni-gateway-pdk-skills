@@ -172,6 +172,8 @@ properties:
     default: "#[vars.claimSet.role == 'superRole']"
 ```
 
+JWT Evaluator wiring (from the docs): import `pdk::script::Evaluator`, declare the filter parameter as `mut custom_validator: Evaluator<'_>`, and from `configure` pass `config.custom_validator_role.evaluator()` into the filter (`on_request(|request| filter(request, config.custom_validator_role.evaluator()))`). Bind the claim set with `bind_vars("claimSet", claims.get_claims())`, then `eval()`; treat the claim check as passed only when `result.ok().and_then(|v| v.as_bool()).unwrap_or_default()` is true. Don't copy the docs snippet verbatim: it mixes variable names (`parsed_claims`/`claims`, `custom_validator`/`custom_validator_role_claim`) and `unwrap()`s. See [[pdk-dataweave]] for the evaluator API.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-jwt

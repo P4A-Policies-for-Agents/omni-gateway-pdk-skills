@@ -78,6 +78,15 @@ exists but is still bounded by the buffer, so it is not a general escape hatch. 
 buffered/stop-iteration filter for the largest possible rewritten output, or redesign the operation
 as truly per-chunk processing. See [[pdk-request-headers-bodies]] and [[pdk-experimental-feature]].
 
+### Flow cancellation — every `.await` is a cancellation point
+A policy runs single-threaded, but each wrapped `on_request`/`on_response` function runs as a
+concurrent task, so one policy instance handles many requests at once. Every `.await` may suspend
+the task, and the runtime can **cancel** it there — code after the last `.await` never runs. The
+common case: a request function is awaiting a body (`state.into_body_state().await`) and an
+upstream policy returns an early response, so the code after that `.await` is never executed. Don't
+put required cleanup or bookkeeping after an `.await` without accounting for cancellation. Source:
+https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features#flow-cancellation
+
 ### Multiple replicas, no shared memory
 Each Envoy replica loads its own filter instances. There is **no shared in-process state across
 replicas.** A `HashMap` inside a policy is per-filter-instance and invisible everywhere else.
@@ -220,7 +229,7 @@ ordinary `#[test]`, while the thin async orchestrator is exercised end-to-end by
 
 ## Source Ref
 
-- **Snapshot:** 2026-06-30
+- **Snapshot:** 2026-11-24
 - **Derived from:** generalized runtime-model and constraint guidance for proxy-wasm PDK policies
   (sandbox limits, latency budget, multi-replica isolation, local-mode resilience, fail-open/closed,
   and the orchestrator/testable-helper split). Field guidance, not a single docs.mulesoft.com page.

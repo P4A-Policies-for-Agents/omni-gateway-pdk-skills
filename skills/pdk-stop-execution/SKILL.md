@@ -100,6 +100,7 @@ async fn response_filter(state: ResponseState) {
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-stop
+- Implementing custom policy features: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features
 
 ## Source Ref
 

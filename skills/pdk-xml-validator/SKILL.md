@@ -79,7 +79,7 @@ async fn configure(launcher: Launcher, Configuration(_configuration): Configurat
 
 ## Initialize from Policy Configuration
 
-If limits come from a policy schema (GCL), parse the configuration and build the `XmlValidatorBuilder` in the `#[entrypoint]` function. Map your `config::Config` fields to the builder methods. Wrap the validator in `std::rc::Rc` or `std::sync::Arc` for shared ownership across closures.
+If limits come from a policy schema (GCL), parse the configuration and build the `XmlValidatorBuilder` in the `#[entrypoint]` function. Map your `config::Config` fields to the builder methods. Wrap the validator in `std::rc::Rc` or `std::sync::Arc` for shared ownership across closures. If the configuration is invalid or incompatible, applying the policy fails before traffic reaches the API. Use the types the PDK API expects for your release.
 
 ## Interpret Validation Errors
 
@@ -89,6 +89,7 @@ If `validate_stream` returns `Err`, reject the payload. The XML may be malformed
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-xml-validator
 - Example: XML Validation Policy Example
+- Related built-in policy: https://docs.mulesoft.com/gateway/latest/policies-included-xml-threat-protection
 
 ## Source Ref
 

@@ -33,6 +33,8 @@ Verify:
 anypoint-cli-v4 plugins
 ```
 
+All policies on the device share one Anypoint CLI PDK plugin, and a new project's PDK Rust libraries and Anypoint Cargo plugin match the installed plugin version. After upgrading the plugin, you must manually upgrade each existing project's libraries and Cargo plugin. The `pdk` and `pdk-test` versions in `Cargo.toml` must match each other, and the installed plugin must support that version.
+
 **Note:** In PDK 1.7.0, the plugin was renamed from `anypoint-cli-pdk-plugin` to `anypoint-pdk-plugin`. If upgrading from earlier than 1.7.0, uninstall the old plugin first:
 
 ```bash

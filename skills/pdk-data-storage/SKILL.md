@@ -45,7 +45,11 @@ let (data, version) = storage.get::<MyData>(&key).await?;
 
 ## Shared Storage Configuration
 
-For multi-replica deployments, configure shared storage (Redis). See example `playground/config/shared-storage-redis.yaml` and `playground/docker-compose.yaml` files.
+For multi-replica deployments, configure shared storage (Redis). Configure the Redis shared storage on the gateway:
+- Connected Mode: https://docs.mulesoft.com/gateway/latest/conn-shared-storage-config
+- Local Mode: https://docs.mulesoft.com/gateway/latest/local-shared-storage-config
+
+Example files: `playground/config/shared-storage-redis.yaml` (https://github.com/mulesoft/pdk-custom-policy-examples/blob/1.11.0/data-storage-stats/playground/config/shared-storage-redis.yaml) and `playground/docker-compose.yaml` in the Data Storage Stats example.
 
 ## Experimental: Encrypt a Remote Store at Rest (PDK 1.11+)
 

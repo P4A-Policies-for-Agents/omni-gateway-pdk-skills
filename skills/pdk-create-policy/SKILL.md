@@ -15,8 +15,12 @@ This skill guides the creation of new Omni Gateway custom policies using the PDK
 - **PDK Plugin** (v1.7.0+): `anypoint-cli-v4 plugins:install anypoint-pdk-plugin`
   - **Important**: If the older `anypoint-cli-pdk-plugin` is installed, uninstall it first (`anypoint-cli-v4 plugins:uninstall anypoint-cli-pdk-plugin`) — it conflicts with the new plugin and intercepts the `--project-mode` flag.
 - **Rust toolchain**: Rust 1.97.0 or later (PDK 1.11), with the `wasm32-wasip1` target installed
-- **Docker**: required for local playground testing
+- **Cargo Generate 0.22.0**: `cargo install --locked cargo-generate@0.22.0`
+- **Anypoint CLI 4.x**: the docs set the minimum at v1.4.4; the newer version above is what this skill's `--project-mode` flow assumes
+- **Connected App authentication**: authenticate the CLI with a Connected App (client ID and secret). It needs the `View Organization` and `View Environment` scopes, plus `Exchange Contributor` to publish to Exchange
+- **Docker**: required for local playground testing and integration tests (building and publishing work without it)
 - **Anypoint Platform account**: with organization access for publishing
+- **Operating systems**: macOS, Ubuntu (also run `sudo apt install -y build-essential pkg-config libssl-dev`), and Windows. Windows (PowerShell plus Make) is for developing and testing only; Omni Gateway does not run on Windows in production
 
 ## Workflow
 
@@ -47,6 +51,10 @@ anypoint-cli-v4 pdk policy-project create --name <policy-name> --project-mode de
 ```
 
 The `--category`, `--interface-scope`, and `--description` flags are optional but recommended to pre-populate the gcl.yaml.
+
+Other `create` flags from the docs: `--name`/`-n` (required), `--description`/`-d`, `--output-dir`/`-o` (defaults to the policy `assetID`, the lower-cased name with spaces replaced by `-`), `--version` (default `1.0.0`), `--group-id` (organization ID; see the group ID troubleshooting entry in [[pdk-troubleshooting]]), and `--fips` (FIPS-compliant modules; keep any added dependencies compliant). `--category` and `--interface-scope` are used by this skill's flow but are not in the docs flag table.
+
+**Unified model.** Omitting `--project-mode` creates a unified-model project: one project in which definition and implementation share a version and are published together. Its layout is `definition/gcl.yaml`, `src/`, `playground/`, `tests/`, `Makefile`, `Cargo.toml`, `AGENTS.md` and `.project.yaml`. This skill covers the split model, where the two parts are versioned and published separately so an implementation fix does not require a new definition. Docs: https://docs.mulesoft.com/pdk/latest/policies-pdk-create-project-overview
 
 This creates `<policy-name>-definition/` containing:
 - `gcl.yaml` — Policy definition schema
@@ -501,3 +509,10 @@ strip = "debuginfo"
 - Developing custom policies: https://docs.mulesoft.com/pdk/latest/policies-pdk-develop-custom-policies
 - PDK crate: https://crates.io/crates/pdk
 - PDK API docs: https://docs.rs/pdk/1.11.0/pdk/
+
+## Source Ref
+
+- **Snapshot:** 2026-11-24
+- https://docs.mulesoft.com/pdk/latest/policies-pdk-prerequisites
+- https://docs.mulesoft.com/pdk/latest/policies-pdk-create-project
+- https://docs.mulesoft.com/pdk/latest/policies-pdk-create-project-split
