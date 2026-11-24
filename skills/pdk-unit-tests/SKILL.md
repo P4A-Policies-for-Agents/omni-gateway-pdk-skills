@@ -92,6 +92,14 @@ last. The last filter is closest to the origin. Each filter gets isolated policy
 context; API, gateway, and platform metadata are shared across the chain. Register authority-based
 HTTP or gRPC upstreams on the chain builder so they resolve for every filter.
 
+**Shared stream properties and headers (PDK 1.11+).** All filters in a chain now share one
+stream-scoped property store and one header/trailer store, as the gateway does. A property or header
+written by one filter is visible to the others in every phase (headers, body, streaming body) with no
+copy between filters. Request and response headers stay separate within the shared store. The release
+notes list this as the fix for "stream properties and headers now propagate correctly in policy chains".
+Chain tests that worked around the old isolation (re-setting a property per filter) can drop the
+workaround.
+
 ## Set the Test Log Level (PDK 1.10+)
 
 Both `UnitTestBuilder` and `FilterChainBuilder` provide `set_log_level`:

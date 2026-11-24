@@ -80,6 +80,13 @@ now routed through the request context rather than being incorrectly delivered t
 handler. Use PDK 1.10 or later for WebSocket or request flows that await a tick and then call an
 HTTP service.
 
+## Fire-and-Forget Calls (PDK 1.11+)
+
+If you drop the pending request without awaiting it (a fire-and-forget call, such as an audit or
+telemetry POST), PDK 1.10 stored the late response, and nothing ever claimed or released it. PDK 1.11 discards a
+response nobody is waiting for, so these calls no longer leak memory (release note W-24812678). Use 1.11 or later for policies
+that make fire-and-forget calls on every request. You still cannot read the outcome of such a call.
+
 ## Make HTTP Requests
 
 Access the defined service in the `Config` struct and perform requests via the HTTP client:

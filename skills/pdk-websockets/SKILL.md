@@ -87,10 +87,13 @@ WebSocket support remains open beta under `experimental_websocket`.
 
 ### Pump Finish Fix (PDK 1.11+)
 
-When one direction's handler finishes, its pump never calls `next()` again. PDK 1.11 unpauses that
-plane, so the remaining frames in that direction flow through untouched. Connection close also unpauses
-both planes so the opposite side can drain. No code change is needed. Upgrade and retest your
-connection-close and shutdown paths, especially a handler that returns early.
+The 1.11.0 release notes list this as "WebSocket bodies are no longer paused when no upgrade handler is
+registered". A WebSocket plane starts paused, and only a handler calling `next()` releases it. When a
+direction's handler finishes, its pump never calls `next()` again, so in 1.10 nothing released the plane
+and its frames were held. This is the case for a policy with no frame handler, where the no-op `()`
+handler returns at once. PDK 1.11 unpauses that plane when its handler finishes, so the remaining frames
+in that direction flow through untouched. No code change is needed. Upgrade and retest policies that
+register no upgrade handler, and handlers that return early.
 
 ## Supported Frame Types
 
