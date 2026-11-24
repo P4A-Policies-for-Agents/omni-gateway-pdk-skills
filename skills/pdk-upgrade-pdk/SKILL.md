@@ -42,7 +42,7 @@ anypoint-cli-v4 plugins:install anypoint-pdk-plugin
 
 ## Upgrading to 1.11.0 (current stable)
 
-PDK 1.11.0 is the current stable release. Upgrade `pdk`, `pdk-test`, `pdk-unit`, and `cargo-anypoint`
+PDK 1.11.0 (released November 17, 2026) is the current stable release. Upgrade `pdk`, `pdk-test`, `pdk-unit`, and `cargo-anypoint`
 together, and raise the policy's `rust-version` to `1.97.0`. The 1.11 crates declare `rust-version =
 "1.97.0"` and `resolver = "3"`; 1.10 declared `1.88.0` and `resolver = "2"`.
 
@@ -75,8 +75,26 @@ Additive in 1.11 (no action unless you use them):
 - Config property names that are Rust keywords get escaped field names ([[pdk-schema-definition]]).
 - Experimental at-rest encryption for remote data stores ([[pdk-data-storage]]).
 - Experimental metrics gained cadence, OTLP event and span APIs ([[pdk-experimental-feature]]).
-- WebSocket flows: when one direction's handler finishes, its plane is unpaused so the remaining frames
-  pass through ([[pdk-websockets]]).
+- WebSocket flows: a plane is unpaused when its handler finishes, so a policy with no upgrade handler no
+  longer holds frames ([[pdk-websockets]]).
+
+Fixed in 1.11 (from the release notes, each confirmed in the crate sources):
+
+- Fire-and-forget HTTP calls no longer leak memory ([[pdk-http-call]]).
+- `pdk::script::Value` serializes without going through `serde_json::Value`, so serialization no longer
+  depends on the `serde_json` feature. Retest code that serializes a script `Value`; numbers are written
+  as `f64`.
+- Lifetime conflicts with arrays of objects in generated `Config` code are resolved. The generated
+  init code now iterates a clone of the array when it creates services.
+- The Flex entrypoint is generated as `#[entrypoint_flex_light]`, which emits nothing when
+  `enable_stop_iteration` is off and the policy has no services.
+- `pdk-unit` chain tests share stream properties and headers across filters ([[pdk-unit-tests]]).
+- Token Introspection keeps the protected-resource trailing slash and matches the metadata suffix
+  ([[pdk-token-introspection]]).
+- LDAP credentials are masked in debug logs ([[pdk-policy-logging]]).
+- Rust-keyword config field names are escaped ([[pdk-schema-definition]]).
+- Third-party dependencies were updated for reported vulnerabilities. Run `cargo update` or delete
+  `Cargo.lock` and rebuild.
 
 The crate diff does not cover scaffolding. Compare the generated Makefile, Compose file and `AGENTS.md`
 with a freshly generated 1.11 project before assuming a dependency bump is enough.
