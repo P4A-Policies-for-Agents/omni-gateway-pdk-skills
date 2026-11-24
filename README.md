@@ -39,7 +39,7 @@ Code, a plugin or your skills directory). Once installed, the agent invokes the 
 
 ## Versioning
 
-Skills currently target **PDK 1.10.0**. PDK ships breaking changes between releases (CLI plugin
+Skills currently target **PDK 1.11.0**. PDK ships breaking changes between releases (CLI plugin
 renames, Rust/WASI target bumps); see `skills/pdk-upgrade-pdk/SKILL.md` for upgrade guidance.
 
 ## License

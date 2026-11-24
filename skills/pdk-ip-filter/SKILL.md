@@ -47,5 +47,5 @@ if ip_filter.is_allowed("192.168.1.100") {
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-ip-filter.adoc`
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-ip-filter.adoc`
+- **Snapshot:** 2026-11-24

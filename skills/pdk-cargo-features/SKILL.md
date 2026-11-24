@@ -27,16 +27,16 @@ Set `default-features = false` on the `pdk` dependency, then re-add only what yo
 
 ```toml
 # Disable both JWT and XML Validator:
-pdk = { version = "1.10.0", default-features = false }
+pdk = { version = "1.11.0", default-features = false }
 
 # Keep only JWT:
-pdk = { version = "1.10.0", default-features = false, features = ["jwt"] }
+pdk = { version = "1.11.0", default-features = false, features = ["jwt"] }
 
 # Keep only XML Validator:
-pdk = { version = "1.10.0", default-features = false, features = ["xml_validator"] }
+pdk = { version = "1.11.0", default-features = false, features = ["xml_validator"] }
 ```
 
-If you leave the default `pdk = { version = "1.10.0" }`, both features are on.
+If you leave the default `pdk = { version = "1.11.0" }`, both features are on.
 
 ## FIPS-Compliant JWT (`jwt-fips`)
 
@@ -44,13 +44,20 @@ If you leave the default `pdk = { version = "1.10.0" }`, both features are on.
 
 ```toml
 # FIPS-compliant JWT only:
-pdk = { version = "1.10.0", default-features = false, features = ["jwt-fips"] }
+pdk = { version = "1.11.0", default-features = false, features = ["jwt-fips"] }
 
 # FIPS-compliant JWT with XML Validator:
-pdk = { version = "1.10.0", default-features = false, features = ["jwt-fips", "xml_validator"] }
+pdk = { version = "1.11.0", default-features = false, features = ["jwt-fips", "xml_validator"] }
 ```
 
 The JWT API surface (`SignatureValidator`, `JwtGenerator`, claim accessors) is the same under `jwt-fips` — see the `pdk-jwt` skill. Only the crypto backend differs. For scaffolding a fully FIPS-compliant project use `pdk create --fips`; see `pdk-upgrade-pdk`.
+
+## PDK 1.11 Feature Check
+
+Between 1.10 and 1.11, `default`, `jwt`, `jwt-fips` and `xml_validator` are unchanged. Checked against
+the published `pdk` 1.11.0 `Cargo.toml`. The new flags are experimental, so they belong in
+`pdk-experimental-feature`: `experimental_body_slice_access` and `experimental_datastorage_encryption`.
+Both are also part of the `experimental` aggregate, which is broader than either one.
 
 ## Common Mistakes
 
@@ -70,6 +77,7 @@ The JWT API surface (`SignatureValidator`, `JwtGenerator`, claim accessors) is t
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-create-project.adoc` (#configure-pdk-features)
-- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1)
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-create-project.adoc` (#configure-pdk-features)
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1, 1.11.0)
+- **Crate source:** `pdk` 1.10.0 and 1.11.0 `Cargo.toml` `[features]` tables (feature diff above)
+- **Snapshot:** 2026-11-24

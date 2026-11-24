@@ -245,9 +245,9 @@ gateway.
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-http-request.adoc`
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-http-request.adoc`
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
-- **Snapshot:** 2026-08-24
+- **Snapshot:** 2026-11-24
 - **Note:** the token-caching and guardrail-call sections (2026-11-11) are field-derived from
   MuleSoft's own LLM/auth policies, not from the docs page. They use only public 1.10.0 APIs
   (`pdk::lock`, `pdk::data_storage`, `HttpClient`).

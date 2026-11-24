@@ -462,6 +462,18 @@ impl TryFrom<&[u8]> for MyPolicyConfig {
 Keep `validate()` separate — `init` (see [[pdk-http-call]]) often deserializes without validating,
 while `configure` runs the full check. Never `panic!`/`unwrap` in either path ([[pdk-runtime-model]]).
 
+### Property Names That Are Rust Keywords (PDK 1.11+)
+
+`cargo-anypoint` 1.11 turns each property name into a Rust field name:
+
+- A Rust keyword becomes a raw identifier: `type` → `r#type`.
+- `crate`, `self`, `Self` and `super` cannot be raw identifiers, so they get a trailing underscore:
+  `crate_`, `self_`, `Self_`, `super_`.
+
+The JSON key does not change. Each field keeps `#[serde(alias = "<property name>")]`, so the
+`gcl.yaml` name is still the key your configuration uses. After `make build-asset-files`, check the
+generated `config.rs` for the escaped field name, and access it in Rust with that name.
+
 ## Propagate Changes to Rust
 
 After modifying `gcl.yaml`, run:
@@ -559,5 +571,5 @@ flattened via `.unwrap_or_default()`).
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-create-schema-definition.adoc`
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-create-schema-definition.adoc`
+- **Snapshot:** 2026-11-24

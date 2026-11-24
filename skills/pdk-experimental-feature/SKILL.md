@@ -1,6 +1,6 @@
 ---
 name: pdk-experimental-feature
-description: Use when working with PDK experimental Cargo features, including the PDK 1.10 experimental aggregate, contracts v2, data-storage formats and sync, body-limit-check bypass, metrics, WebSockets, mandatory code annotations, and migration checklists for GA.
+description: Use when working with PDK experimental Cargo features, including the PDK 1.11 experimental aggregate, body-slice access (experimental_body_slice_access), data-store encryption (experimental_datastorage_encryption), contracts v2, data-storage formats and sync, body-limit-check bypass, metrics cadence/events/spans, WebSockets, mandatory code annotations, and migration checklists for GA.
 ---
 
 # Skill: Using PDK Experimental Features
@@ -96,29 +96,53 @@ pdk = { version = "1.8.0", features = ["enable_stop_iteration"] }
 
 For full documentation of this feature, see the **pdk-request-headers-bodies** skill (Approach 2: Stop Iteration).
 
-## Available Experimental Features (PDK 1.10)
+## Available Experimental Features (PDK 1.11)
 
-PDK 1.10 exposes these experimental feature flags:
+PDK 1.11 exposes these experimental feature flags (verified against the `pdk` 1.11.0 `[features]` table):
 
 | Feature | Enables |
 |---|---|
-| `experimental` | Aggregate: core/classy experimental APIs, contracts v2, data-storage formats, metrics, and WebSockets |
+| `experimental` | Aggregate: core/classy experimental APIs, contracts v2, data-storage formats and encryption, body-slice access, metrics, and WebSockets |
+| `experimental_body_slice_access` | Read or write a slice of an HTTP body (`body_size`, `body_range`, `set_body_range`). New in 1.11 |
 | `experimental_contracts_v2` | Contracts v2 library surface |
+| `experimental_datastorage_encryption` | Ask Flex to encrypt a remote data store at rest (`RemoteDataStorage::encrypted`). New in 1.11 |
 | `experimental_datastorage_formats` | Experimental data-storage formats |
 | `experimental_disable_body_limit_check` | Bypasses the PDK body-size guard; does not remove the Omni/Envoy physical buffer limit |
-| `experimental_metrics` | Custom policy counters, gauges, and readiness metrics |
+| `experimental_metrics` | Custom policy counters, gauges, readiness metrics, cadence, OTLP events, and tracing spans |
 | `experimental_storage_sync` | Experimental synchronous data-storage support |
 | `experimental_websocket` | Open-beta WebSocket filters and frame APIs |
 
 Enable the narrowest feature that provides the API you need. The aggregate `experimental` feature
-is substantially broader than body-stream writing and can increase API/behavior exposure.
+is substantially broader than body-stream writing and can increase API/behavior exposure. In 1.11 it
+also turns on body-slice access and store encryption, so a policy that enables it for metrics also
+gets both.
 
 ### `experimental`
 
 **Expected GA:** Unknown
 
 Enables the aggregate set shown above, including WebSockets, metrics, contracts v2, experimental
-data-storage formats, and core/classy experimental APIs. Do not use it when a narrower flag works.
+data-storage formats and encryption, body-slice access, and core/classy experimental APIs. Do not use it
+when a narrower flag works.
+
+### `experimental_body_slice_access`
+
+**Expected GA:** Unknown
+
+Adds `body_size`, `body_range` and `set_body_range` to `BodyHandler`. Writes are only possible at the
+start or end of the body, and `set_body_range` does not update `content-length`. The full rules and an
+example are in [[pdk-request-headers-bodies]] (Experimental: Read or Write a Body Slice). Enable it
+only when you need to peek at or append to a body without a full rewrite.
+
+### `experimental_datastorage_encryption`
+
+**Expected GA:** Unknown
+
+Lets a remote data store request at-rest encryption (`store_builder.remote(...).encrypted(true)`).
+Flex 1.15+ on Redis, filesystem or distributed shared storage seals the values; other backends and older
+gateways store plaintext without reporting it. Every handle on the store must use the same flag, and
+turning encryption on for an existing store makes its old values unreadable (`Undecryptable`). See
+[[pdk-data-storage]] (Experimental: Encrypt a Remote Store at Rest).
 
 ### `experimental_disable_body_limit_check`
 
@@ -145,12 +169,15 @@ than host memory (10 MB is a valid value). See [[pdk-request-headers-bodies]].
 
 **Expected GA:** Unknown
 
+Note: `pdk::metrics` is only exposed when `experimental_metrics` is enabled (see `pdk/src/lib.rs` in the
+1.11.0 crate).
+
 **What it provides:** The `pdk::metrics` module, backed by the `pdk-metrics-lib` crate. It exposes **counters** and **gauges** that integrate with the Omni Gateway's host metrics system, allowing custom policies to emit numeric metrics visible in whatever observability platform is connected to the gateway (e.g., Prometheus, Anypoint Monitoring).
 
 **Enabling:**
 
 ```toml
-pdk = { version = "1.10.0", features = ["experimental_metrics"] }
+pdk = { version = "1.11.0", features = ["experimental_metrics"] }
 ```
 
 **Core types and traits:**
@@ -248,6 +275,19 @@ async fn configure(
 ```
 
 **Metric name format:** The final metric name registered with the host is formatted as `<name>,<tag1_key>=<tag1_value>,<tag2_key>=<tag2_value>,...` with tags sorted alphabetically by key.
+
+**Cadence, events and spans (PDK 1.11+):**
+
+- `.cadence(MetricCadence::High | Standard | Extended)` on a `MetricsInstanceBuilder` sets how often the
+  value is reported. The default is `Standard`.
+- `pdk::metrics::event` (`Event::new(name)` with `.severity`, `.body`, `.attribute`, `.trace_id`) builds an
+  OTLP log record, and `HttpEventExporter` (`.api_name`, `.timeout`) sends it. This is an experimental
+  export path with no GA contract.
+- `pdk::metrics::span` provides `DownstreamSpan` and `UpstreamSpan` for tracing tags: `set_tag`, `set_name`,
+  and `adopt_decorator_header` (downstream) or `clear_tags` (upstream).
+
+Check the exact signatures in the `pdk-metrics-lib` 1.11.0 source before relying on them; the docs page
+did not describe these APIs at snapshot time.
 
 **Limitations:**
 - Metrics are registered with the Omni Gateway host — the exact integration path with external monitoring systems is not documented and may change

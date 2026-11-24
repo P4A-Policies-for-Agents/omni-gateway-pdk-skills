@@ -145,6 +145,6 @@ the optimization after upgrading the PDK libraries.
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-dataweave.adoc`
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-dataweave.adoc`
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
-- **Snapshot:** 2026-08-24
+- **Snapshot:** 2026-11-24

@@ -18,7 +18,7 @@ manipulation also needs the low-level `ll` feature:
 
 ```toml
 [dependencies]
-pdk = { version = "1.10.0", features = ["ll", "experimental_websocket"] }
+pdk = { version = "1.11.0", features = ["ll", "experimental_websocket"] }
 ```
 
 ## Configure WebSocket Handlers
@@ -84,6 +84,13 @@ let handler = FilterBuilder::new()
 ```
 
 WebSocket support remains open beta under `experimental_websocket`.
+
+### Pump Finish Fix (PDK 1.11+)
+
+When one direction's handler finishes, its pump never calls `next()` again. PDK 1.11 unpauses that
+plane, so the remaining frames in that direction flow through untouched. Connection close also unpauses
+both planes so the opposite side can drain. No code change is needed. Upgrade and retest your
+connection-close and shutdown paths, especially a handler that returns early.
 
 ## Supported Frame Types
 
@@ -236,15 +243,15 @@ fn text_frames_are_prefixed_with_counter() {
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-websocket
 - pdk-unit WebSocket testing: https://docs.mulesoft.com/pdk/latest/policies-pdk-unit#test-websocket-policies
-- Example: https://github.com/mulesoft/pdk-custom-policy-examples/tree/1.10.0/websocket
-- Release notes: https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- Example: https://github.com/mulesoft/pdk-custom-policy-examples/tree/1.11.0/websocket
+- Release notes: https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0, 1.11.0)
 
 ## Source Ref
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-websocket.adoc`
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-websocket.adoc`
+- **Snapshot:** 2026-11-24
 
 ## Related Skills
 

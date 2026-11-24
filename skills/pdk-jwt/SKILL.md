@@ -179,7 +179,7 @@ properties:
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
-- **Snapshot:** 2026-08-24 (includes 1.9.1 `jwt`/`jwt-fips` Cargo features)
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-jwt.adoc`
+- **Snapshot:** 2026-11-24 (includes 1.9.1 `jwt`/`jwt-fips` Cargo features)
 - **Note:** the JWKS padded-base64url guidance (2026-11-11) is field-derived from a fix in
   MuleSoft's own JWT validation policy, not from the docs page.

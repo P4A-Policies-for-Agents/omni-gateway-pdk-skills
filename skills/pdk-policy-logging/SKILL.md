@@ -1,6 +1,6 @@
 ---
 name: pdk-policy-logging
-description: Use when configuring logging in PDK custom policies using the pdk::logger macros (debug, info, warn, error) that generate log messages enriched with API instance ID, policy ID, and request ID in Omni Gateway logs, and for the convention to never log or return secrets or PII — credentials, Authorization header values, tokens or JWT principals, token hashes, header/body dumps, detected PII values, client secrets, or raw config bytes — plus the undocumented guaranteed-delivery idiom of logging at error! with a fixed prefix to bypass log-level filtering.
+description: Use when configuring logging in PDK custom policies using the pdk::logger macros (debug, info, warn, error) that generate log messages enriched with API instance ID, policy ID, and request ID in Omni Gateway logs, and for the convention to never log or return secrets or PII — credentials, Authorization header values, tokens or JWT principals, token hashes, header/body dumps, detected PII values, client secrets, or raw config bytes — plus the undocumented guaranteed-delivery idiom of logging at error! with a fixed prefix to bypass log-level filtering, and PDK 1.11 splitting messages over 30K characters into multiple lines.
 ---
 
 # Skill: Configuring Policy Logging
@@ -118,16 +118,39 @@ All log messages appear in the Omni Gateway logs in the following format:
 
 For more information about viewing Omni Gateway logs, see [Monitoring Omni Gateway](https://docs.mulesoft.com/gateway/latest/flex-gateway-monitoring).
 
+### Long Messages Are Split (PDK 1.11+)
+
+PDK 1.11 splits a message whose text is longer than **30,000 bytes** into several log lines. Each chunk
+holds up to **30,000 characters**, cut on UTF-8 character boundaries, and every chunk repeats the
+`[policy][api][req]` prefix. Shorter messages are sent as one line, as before.
+
+- A log scraper that expects one JSON document per line (for example, the `error!` + fixed-prefix
+  idiom above) breaks when a payload exceeds 30K. Keep structured log payloads well under the limit,
+  or make the consumer reassemble consecutive lines with the same `[req: …]` prefix.
+- Don't log whole bodies to "see everything". Besides the secrets rule above, a large body now becomes
+  many lines.
+
+### Credential Masking in PDK Libraries (PDK 1.11+)
+
+The LDAP library's debug logging of outgoing headers now masks the `Authorization` and bind-password
+values. It keeps the first and last character (and the `Basic ` scheme), and fully masks secrets shorter
+than three characters. PDK 1.10 logged the raw header values at `debug!`. Your own log lines get no such
+masking, so the rules in "Never log or return secrets" still apply in full.
+
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-logging
+- Release notes: https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.11.0: log chunking,
+  LDAP credential masking). Chunking verified in `pdk-core` 1.11.0 `src/log/logger.rs`
+  (`MAX_LOG_LENGTH = 30000`, chunks re-prefixed with the log metadata); LDAP masking in
+  `pdk-ldap-lib` 1.11.0 `src/client.rs` (`obfuscate`, compared with 1.10.0 header logging).
 
 ## Source Ref
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-logging.adoc`
-- **Snapshot:** 2026-11-11
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-logging.adoc`
+- **Snapshot:** 2026-11-24
 - **Note:** the "Never log or return secrets" conventions are field-derived (informed by
   credential- and PII-redaction fixes in MuleSoft's own policies, including the public
   `a2a-pii-detector-policy` example in `mulesoft/pdk-custom-policy-examples`), not from the docs page; log-level

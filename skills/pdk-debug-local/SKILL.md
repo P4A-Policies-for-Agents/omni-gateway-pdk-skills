@@ -175,4 +175,4 @@ To debug Rust code in VS Code:
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-debug-local
-- **Snapshot:** 2026-08-24
+- **Snapshot:** 2026-11-24

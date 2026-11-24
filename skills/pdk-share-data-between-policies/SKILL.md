@@ -128,8 +128,8 @@ let total = stream.read_property(PROP_TOKENS_TOTAL)
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-streamproperties.adoc`
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-streamproperties.adoc`
+- **Snapshot:** 2026-11-24
 - **Note:** "Publishing values for downstream policies, metrics and tracing" (2026-11-11) is
   field-derived from MuleSoft's own LLM policies. The tracing label sources are from
   https://docs.mulesoft.com/gateway/latest/policies-included-tracing (checked 2026-11-11).

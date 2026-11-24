@@ -82,7 +82,7 @@ Two practical requirements observed in MuleSoft's `aws-sigv4` FIPS crypto module
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-libraries.adoc`
-- **Snapshot:** 2026-09-19
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-libraries.adoc`
+- **Snapshot:** 2026-11-24
 - **Note:** the host foreign-function (`call_foreign_function`) section is undocumented — derived from
   MuleSoft's own production policies, not the docs page.
