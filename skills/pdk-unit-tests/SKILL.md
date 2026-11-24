@@ -25,6 +25,20 @@ Add `pdk-unit` as a dev-dependency in the policy's `Cargo.toml`. **In this monor
 pdk-unit = { workspace = true, features = ["experimental"] }
 ```
 
+Outside the monorepo, pin the crate version. A plain dev-dependency is enough for most tests:
+
+```toml
+[dev-dependencies]
+pdk-unit = "1.11.0"
+```
+
+Stop-iteration tests (below) also need the feature on `pdk-unit`:
+
+```toml
+[dev-dependencies]
+pdk-unit = { version = "1.11.0", features = ["enable_stop_iteration"] }
+```
+
 ### MCP / JSON-RPC handler policies — `enable_stop_iteration` is mandatory
 
 If the policy returns `Flow::Break(response)` from inside a JSON-RPC handler — whether you use a workspace dispatcher framework (handler-per-method) or a hand-rolled MCP/A2A request filter (see [[pdk-mcp]], [[pdk-a2a]]) — you MUST add `enable_stop_iteration` to BOTH `pdk` and `pdk-unit`:
@@ -429,6 +443,8 @@ Construct frames with `UnitFrame`. The text/binary constructors take a `fin` fla
 - `UnitFrame::text(payload, fin)`, `UnitFrame::binary(payload, fin)`
 - `UnitFrame::continuation(payload, fin)`
 - `UnitFrame::ping()`, `UnitFrame::pong()`, `UnitFrame::connection_close()`
+- The docs' examples name these differently (`Close`, `text(payload)`, `close()`). Those don't compile against
+  `pdk-unit` 1.11; use the constructors listed above.
 
 Inspect received frames with `frame.frame_type()` (`UnitFrameType::{Text, Binary, Continuation,
 Ping, Pong, ConnectionClose, Reserved}`) and `frame.data()`. `next()` returns `Option<UnitFrame>`.

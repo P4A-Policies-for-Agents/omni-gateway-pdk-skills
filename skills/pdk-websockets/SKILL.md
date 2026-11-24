@@ -236,6 +236,9 @@ fn text_frames_are_prefixed_with_counter() {
 
 - `UnitFrame::text(payload, fin)`, `::binary(payload, fin)`, `::continuation(payload, fin)`,
   `::ping()`, `::pong()`, `::connection_close()`.
+- The docs' pdk-unit WebSocket examples use `Close`, `text(payload)` and `close()`. Those names don't
+  exist in `pdk-unit` 1.11; the constructors above (checked against the crate and the official
+  websocket example) are the ones that compile. The close frame is `UnitFrame::connection_close()`.
 - `UnitFrameType`: `Text`, `Binary`, `Continuation`, `Ping`, `Pong`, `ConnectionClose`, `Reserved`.
 - `conn.client().send_to_server(frame)` / `conn.server().send_to_client(frame)`.
 - `conn.server().next()` / `conn.client().next()` — pull the next forwarded frame.

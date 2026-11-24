@@ -65,14 +65,21 @@ fn create_cors_configuration() -> cors::Configuration {
 | Property | Required | Description |
 |----------|----------|-------------|
 | `method_name` | Required | Method name (CONNECT, DELETE, GET, OPTIONS, PATCH, POST, PUT, TRACE) |
-| `is_allowed` | Required | Whether method is allowed |
+| `allowed` | Required | Whether method is allowed (builder method `.allowed(bool)`) |
+
+The docs table calls this property `is_allowed`, but the 1.11 crate and the official CORS
+example only have the `.allowed(bool)` builder method.
 
 ## CORS Validation
 
-Use `cors::Cors::check_headers()` to validate requests. Returns `Result<cors::Check, cors::CorsError>`.
+Use `cors::Cors::check_headers(&[(String, String)])` to validate requests. It returns
+`Result<cors::Check, cors::CorsError>`. There is no `check()` method, even though the docs
+example calls one.
 
 `cors::Check` methods:
-- `response_type()` → `cors::ResponseType` (`Preflight` or `Main`)
+- `response_type()` → `cors::ResponseType`:
+  - `Preflight`: the policy must respond early with the returned headers.
+  - `Main`: the request continues to the upstream, and the returned headers are added to the response.
 - `headers()` → headers to add to response
 - `into_headers()` → consumes struct, returns headers
 
@@ -96,15 +103,17 @@ async fn request_filter(
 ) -> Flow<Vec<(String, String)>> {
     let cors = cors::Cors::new(cors_configuration);
     let request_headers = request_headers_state.handler().headers();
-    let cors_result = cors.check(&request_headers);
+    let cors_result = cors.check_headers(request_headers.as_slice());
 
     match cors_result {
-        Ok(cors_check) => match cors_check.response_type() {
+        Ok(check) => match check.response_type() {
             cors::ResponseType::Preflight => {
                 Flow::Break(Response::new(200).with_headers(check.into_headers()))
             }
             cors::ResponseType::Main => Flow::Continue(check.into_headers()),
         },
+        // A failed check returns early with a 200 and no CORS headers, as the official example
+        // does, so the browser blocks the cross-origin read.
         Err(_) => Flow::Break(Response::new(200)),
     }
 }
@@ -120,11 +129,13 @@ async fn response_filter(state: ResponseHeadersState, data: RequestData<Vec<(Str
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-cors
-- Example: CORS Validation Policy
+- Example: https://github.com/mulesoft/pdk-custom-policy-examples/tree/1.11.0/cors-validation
 
 ## Source Ref
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
 - **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-cors.adoc`
+- **Verified against:** `pdk-cors-lib` 1.11.0 and the `cors-validation` example (method names
+  differ from the docs page; the crate wins)
 - **Snapshot:** 2026-11-24

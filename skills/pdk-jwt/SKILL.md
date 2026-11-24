@@ -141,11 +141,13 @@ let some_custom_claim: Option<String> = claims.get_claim("username");
 ## Validate Claims
 
 ```rust
-// Validate expiration
-if let Some(exp) = claims.expiration() {
-    if exp < Utc::now() {
-        return Flow::Break(Response::new(400).with_body("token expired"));
-    }
+// Validate expiration. A token without `exp` is rejected, not accepted: `if let Some(exp)`
+// alone would let a non-expiring token through.
+let Some(exp) = claims.expiration() else {
+    return Flow::Break(Response::new(401).with_body("Token missing exp claim"));
+};
+if exp < Utc::now() {
+    return Flow::Break(Response::new(400).with_body("token expired"));
 }
 
 // Validate audience

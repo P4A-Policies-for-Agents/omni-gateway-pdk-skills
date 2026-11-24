@@ -14,12 +14,14 @@ This skill covers how to use the `Clock` injectable to build timers for delayed,
 ```rust
 pub async fn next_tick(&self) -> bool;
 pub async fn sleep(&self, interval: Duration) -> bool;
-pub fn now(&self) -> bool;
+pub fn now(&self) -> SystemTime;
 ```
 
 - `next_tick`: Sleeps for the minimum distinguishable time period
-- `sleep`: Sleeps for ticks where elapsed time >= provided `Duration`
-- `now`: Returns the current date and time
+- `sleep`: Sleeps whole ticks until the elapsed time is at least the given `Duration`. The tick is the
+  timer period, so with a 10-second period `timer.sleep(Duration::from_secs(1))` sleeps 10 seconds.
+- `now`: Returns the current time as a `std::time::SystemTime`. The docs page shows `-> bool`, which
+  is wrong. The 1.11 crate and the Spike example return `SystemTime`.
 - `next_tick` and `sleep` return `true` when time passes, `false` if policy is unapplied/edited during execution
 
 ## Configure a Timer
@@ -30,13 +32,14 @@ async fn configure(
    launcher: Launcher,
    Configuration(bytes): Configuration,
    clock: Clock,
-   client: HttpClient,
 ) -> Result<()> {
+   let config: Config = serde_json::from_slice(&bytes)?;
    let timer = clock.period(Duration::from_secs(10));
 
    launcher
        .launch(on_request(|rs| request_filter(rs, &timer, &config)))
        .await?;
+   Ok(())
 }
 ```
 
@@ -78,13 +81,21 @@ let clock = other_timer.release();
 
 ## Launch Asynchronous Tasks
 
-Execute tasks independent of request flow using `join!` macro (add `futures` crate):
+Execute tasks independent of request flow using `join!` macro (add `futures` crate). Call the task
+function and `launch` without awaiting either one, then await them together with `join!`:
 
 ```rust
-let task = my_async_task(&timer, &config);
-let launched = launcher.launch(filter);
+let task = my_async_task(&timer, &config);   // not awaited
+let launched = launcher.launch(filter);      // not awaited
 let joined = join!(launched, task);
 ```
+
+Each worker runs its own copy of the task. Put a loop inside the task for periodic work, and use a
+lock (below) when only one worker should do it.
+
+A task launched this way can make HTTP calls with an `HttpClient` injected into `configure`. The
+official Block example fetches its IP list from a timer loop like this, even though the HTTP call
+docs page says calls are only allowed from the request or response filter.
 
 ### Periodic Tasks
 
@@ -107,7 +118,9 @@ let joined = join!(launched, task1, task2);
 
 ## Sync Workers with Locks
 
-Use `LockBuilder` to ensure only one worker completes a task in a time period:
+Use `LockBuilder` to ensure only one worker completes a task in a time period, for example when the
+task calls an HTTP service with usage limits. A policy can create several locks, each with its own
+ID:
 
 ```rust
 #[entrypoint]
@@ -124,16 +137,28 @@ async fn configure(
     // ...
 }
 
-async fn my_async_task(timer: &Timer, lock: &TryLock) {
+async fn my_async_task(timer: &Timer, client: &HttpClient, service: &Service, lock: &TryLock) {
    while timer.next_tick().await {
-     if let Some(acquired) = lock.try_lock() {
-       // Execute task — only this worker runs it
+     // Lock not acquired: another worker runs the task. Skip and wait for the next tick.
+     let Some(acquired) = lock.try_lock() else { continue };
+
+     let response = client.request(service).get().await;
+
+     // After every await, confirm the lock is still held. If it expired, this worker was
+     // considered unresponsive and another worker may be running the same task, so discard
+     // the result.
+     if !acquired.refresh_lock() {
+       continue;
      }
+     // ... use `response` ...
    }
 }
 ```
 
-Set lock `expiration` longer than total time for nested async calls. Call `refresh_lock` if awaiting results within the lock to prevent expiration.
+Set lock `expiration` longer than the total time of the awaited calls inside the lock. Call
+`refresh_lock` after each await: it extends the lock and returns `false` if another worker has
+taken it.
+On `false`, abort that run of the task, as the Block example does when it discards the fetched data.
 
 ## HTTP Calls After Ticks (PDK 1.10+)
 
@@ -152,4 +177,6 @@ tick and then calls an HTTP service.
 - **Branch:** `latest`
 - **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-timer.adoc`
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
+- **Verified against:** `pdk-classy` 1.11.0 (`Timer::now`) and the 1.11.0 `spike` and `block`
+  examples (lock refresh, HTTP calls from a timer task); where they differ from the docs page, they win
 - **Snapshot:** 2026-11-24

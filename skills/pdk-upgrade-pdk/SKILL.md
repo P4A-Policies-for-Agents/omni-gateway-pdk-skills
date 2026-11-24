@@ -43,13 +43,20 @@ anypoint-cli-v4 plugins:install anypoint-pdk-plugin
 ## Upgrading to 1.11.0 (current stable)
 
 PDK 1.11.0 (released November 17, 2026) is the current stable release. Upgrade `pdk`, `pdk-test`, `pdk-unit`, and `cargo-anypoint`
-together, and raise the policy's `rust-version` to `1.97.0`. The 1.11 crates declare `rust-version =
-"1.97.0"` and `resolver = "3"`; 1.10 declared `1.88.0` and `resolver = "2"`.
+together. The 1.11 crates declare `rust-version = "1.97.0"` (1.10 declared `1.88.0`), so the
+**toolchain** that builds the policy must be Rust 1.97.0 or later.
+
+The policy's own `Cargo.toml` doesn't have to change. The official 1.11.0 examples still declare
+`rust-version = "1.88.0"`, `edition = "2018"` and `resolver = "2"` and build fine. The crates'
+`resolver = "3"` applies only inside the PDK's own workspace. Raising the policy's `rust-version` to
+`1.97.0` is optional and only documents the real minimum.
 
 Breaking or behavior-changing (check these first):
 
-- **Toolchain and lockfile.** Install Rust 1.97.0 or later and refresh `Cargo.lock` with `cargo update`.
-  If a dependency then fails to build, see [[pdk-troubleshooting]].
+- **Toolchain and lockfile.** Install Rust 1.97.0 or later (`rustup update`, or pin it in
+  `rust-toolchain.toml`), then refresh `Cargo.lock` with `cargo update`. An older toolchain fails with
+  "package `pdk v1.11.0` cannot be built because it requires rustc 1.97.0 or newer". If a dependency then fails to
+  build, see [[pdk-troubleshooting]].
 - **`Api` constructor takes a consumer URI.** The `Api::new` constructor used by tests and mocks now takes
   `consumer_uri: Option<String>` after `version` and before `exchange`. Pass `None` when there is no
   consumer URL. See [[pdk-metadata]].
@@ -251,14 +258,16 @@ cargo anypoint --version
 
 ## Step 4: Upgrade the Policy's Rust Version
 
-1. Open `Cargo.toml`
-2. Update the `rust-version` field:
+1. Install a toolchain at least as new as the PDK's minimum (Rust 1.97.0 for PDK 1.11) and make
+   sure it has the `wasm32-wasip1` target.
+2. Optionally update the `rust-version` field in `Cargo.toml` to match:
 
 ```toml
 rust-version = "1.97.0"
 ```
 
-Ensure the Rust version is installed on your device.
+The field is a declaration; the installed toolchain is what must meet the minimum. The official
+1.11.0 examples keep `rust-version = "1.88.0"`.
 
 ## Step 5: Upgrade the WASI Crate
 
@@ -302,4 +311,6 @@ setup: install-cargo-anypoint ## Setup all required tools to build
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1 through 1.11.0)
 - **Crate source:** `pdk`, `pdk-core`, `pdk-unit` and `cargo-anypoint` 1.11.0 `Cargo.toml`/source, used for the
   1.11 breaking-change list (`Api::new`, MSRV and resolver, keyword escaping)
+- **Examples:** `mulesoft/pdk-custom-policy-examples` 1.11.0 (policy `Cargo.toml` keeps
+  `rust-version = "1.88.0"` and `resolver = "2"`)
 - **Snapshot:** 2026-11-24

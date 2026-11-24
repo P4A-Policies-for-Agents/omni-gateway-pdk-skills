@@ -43,10 +43,12 @@ async fn configure(
 
 ### TokenValidatorBuilder Methods
 
+Call `with_service` before `build`. Every other method is optional.
+
 | Method | Parameter | Default | Description |
 |--------|-----------|---------|-------------|
 | `with_path` | path | `"/"` | Introspection endpoint path |
-| `with_authorization_value` | value | `""` | Authorization header value for introspection requests |
+| `with_authorization_value` | value | `""` (no `Authorization` header sent) | Authorization header value for introspection requests. When the value is empty, the 1.11 crate sends no `Authorization` header at all; the docs table's "header with an empty value" is wrong |
 | `with_client_id` | value | No default | Client ID credential for the introspection service |
 | `with_client_secret` | value | No default | Client secret credential for the introspection service |
 | `with_expires_in_attribute` | attr | `"exp"` | Attribute name for expiration time |
@@ -191,7 +193,8 @@ contract in [[pdk-http-call]].
 - **API:** https://docs.rs/pdk/1.11.0/pdk/token_introspection/struct.ProtectedResourceMetadataBuilder.html
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0, 1.11.0)
 - **Crate source:** `pdk-token-introspection-lib` 1.11.0 `src/discovery.rs` (`_from_uri` methods and
-  path matching; not yet on the docs page at snapshot time)
+  path matching; not yet on the docs page at snapshot time) and `src/introspector.rs` (empty
+  authorization value sends no header)
 - **Snapshot:** 2026-11-24
 - **Note:** the forwarded-origin, base-path-duplication and status-mapping guidance (2026-11-11) is
   field-derived from fixes in MuleSoft's own OAuth/OpenID policies, not from the docs page.
