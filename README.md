@@ -20,6 +20,8 @@ fall into a few groups:
 - **Testing & debugging** — `pdk-unit-tests`, `pdk-integration-tests`, `pdk-test-locally`,
   `pdk-debug-local`, `pdk-troubleshooting`, `pdk-benchmarks` (Criterion benches via the pdk-unit
   harness)
+- **Applying policies** — `pdk-apply-policies` (Connected Mode via API Manager; Local Mode via
+  `spec.policies` or a PolicyBinding; policyRef name; execution order)
 - **Policy features** — authentication, JWT, CORS, rate limiting, caching, IP filtering, schema
   and contract validation, DataWeave, HTTP calls, WebSockets, and more
 - **AI gateway** — `pdk-mcp`, `pdk-a2a`, `pdk-embedding-services`, `pdk-vector-stores`
