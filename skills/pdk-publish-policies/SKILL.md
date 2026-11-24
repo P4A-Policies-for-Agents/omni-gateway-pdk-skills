@@ -25,6 +25,35 @@ make release
 The released asset has no `-dev` suffix and uses the version from `Cargo.toml` without a timestamp.
 That version is immutable in Exchange; bump the policy version before releasing again.
 
+Every publish or release creates a new `stable`-state asset in Exchange
+(https://docs.mulesoft.com/exchange/lifecycle#stablet-state).
+
+## Local Mode
+
+Policies that run on Omni Gateway in Local Mode don't need to be published to Exchange. Exchange is still useful for version control, but distributing the policy to Local Mode gateways is your responsibility.
+
+## Split-Model Publish Choreography
+
+For split-model projects (definition and implementation versioned separately; see [[pdk-create-policy]]), the docs sequence is below. The implementation project's `Cargo.toml` `definition_asset_id` version field must match the definition version, with a `-DEV` suffix while testing against a development definition.
+
+**New policy**
+1. Definition project: edit `gcl.yaml`, run `make publish`.
+2. Implementation project: set `definition_asset_id` version to `1.0.0-DEV`, run `make build-asset-files`, code and test locally, `make publish` for lower-environment testing.
+3. After validation: `make release` in the definition project; set `definition_asset_id` to `1.0.0` in the implementation `Cargo.toml`; `make release` in the implementation project.
+
+**Patch update (implementation only)**
+1. Bump the patch version in the implementation `Cargo.toml` (for example `1.0.1`) and set `definition_asset_id` to `1.0.0-DEV`; `make build-asset-files`, test, `make publish`.
+2. After validation, remove the `-DEV` suffix from `definition_asset_id` and run `make release` in the implementation project.
+
+**Minor or major update (definition and implementation)**
+1. Bump the version in the definition `exchange.json` (for example `1.1.0`), edit `gcl.yaml`, `make publish` the definition.
+2. Bump the implementation version, set `definition_asset_id` to `1.1.0-DEV`, `make build-asset-files`, test, `make publish`.
+3. After validation, remove `-DEV` from `definition_asset_id` and `make release` the implementation. The docs say "release both assets" but list only the implementation step; run `make release` in the definition project first, as in the new-policy flow.
+
+**Local development without Exchange**: run `make release-local` in the definition project, set `definition_asset_id` to the matching version with `-DEV`, run `make build-asset-files`, and test locally. To distribute as a production asset, remove `-DEV` and run `make build`.
+
+Docs: https://docs.mulesoft.com/pdk/latest/policies-pdk-publish-policies-split
+
 ## Prerequisites
 
 - Authenticate the Anypoint CLI with a Connected App that has the `Exchange Contributor` scope.

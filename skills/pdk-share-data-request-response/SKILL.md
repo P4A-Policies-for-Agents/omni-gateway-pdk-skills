@@ -56,6 +56,9 @@ async fn response_filter(state: ResponseState, request_data: RequestData<String>
 ## Documentation Reference
 
 - Source: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-share-data
+- Implementing custom policy features: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features
+- Rate limiting: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-rate-limiting
+- Stopping execution (`RequestData::Cancel` and Flow Cancellation): https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-stop
 
 ## Source Ref
 

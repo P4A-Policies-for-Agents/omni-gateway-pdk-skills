@@ -118,6 +118,8 @@ surfaces at deploy time.
 
 ## Define Parameters
 
+In Connected Mode the parameters appear in the API Manager UI. In **Local Mode** there is no UI: you must distribute a configuration `yaml` file for the policy yourself.
+
 Edit `spec.properties` in `gcl.yaml`:
 
 ```yaml
@@ -209,7 +211,7 @@ properties:
         - hmac
 ```
 
-Renders as radio buttons (3 or fewer values) or dropdown (more). Enumerated parameters don't support `@visibleOn`.
+Renders as radio buttons (3 or fewer values) or dropdown (more). Enumerated parameters don't support `@visibleOn`. In Local Mode, a value outside the enumerated list makes the policy configuration fail.
 
 ## Supported Types
 

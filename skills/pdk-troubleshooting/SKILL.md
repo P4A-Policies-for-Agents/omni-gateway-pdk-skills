@@ -149,8 +149,21 @@ make: *** [build-asset-files] Error 2
 
 **Fix:** Same as above — ensure you have run `make setup` and `make release-local`, and that the definition asset version has been published before building the implementation.
 
+### Behind a Network Proxy
+
+All PDK prerequisite tools except Docker honor the `HTTP_PROXY` and `HTTPS_PROXY` environment variables:
+
+```bash
+export HTTPS_PROXY=<proxy-method>://<proxy-server>:<proxy-port>
+# with authentication:
+export HTTPS_PROXY=<proxy-method>://<username>:<password>@<proxy-server>:<proxy-port>
+```
+
+Depending on the proxy, you may need to add the domains PDK tools access to its allowlist. Docker (needed for `make run` and integration tests) pulls images and needs its own proxy settings: see the Docker CLI client, Docker Desktop (Mac, Windows, Linux) proxy docs. Docs: https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-network-proxy
+
 ## See Also
 
+- Docs: [Policy Development Kit Architecture Overview](https://docs.mulesoft.com/pdk/latest/policies-pdk-architecture), [PDK Prerequisites](https://docs.mulesoft.com/pdk/latest/policies-pdk-prerequisites), [Known Issues](https://help.salesforce.com/s/issues)
 - Skill: Debugging Custom Policies with the PDK Debugging Playground (`pdk-debug-local`)
 - Skill: Test PDK Policy Locally (`pdk-test-locally`)
 - Skill: Upgrading PDK (`pdk-upgrade-pdk`)
@@ -159,4 +172,5 @@ make: *** [build-asset-files] Error 2
 
 - **Docs:** https://docs.mulesoft.com/pdk/latest/policies-pdk-troubleshooting (PDK 1.11)
 - **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.11.0)
+- **Network proxy:** https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-network-proxy
 - **Snapshot:** 2026-11-24

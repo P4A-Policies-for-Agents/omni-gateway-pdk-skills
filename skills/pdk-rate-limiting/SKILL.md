@@ -53,7 +53,7 @@ match rate_limiter.is_allowed(group, &client_key, request_amount).await {
 
 ## Multi-Replica Shared Storage
 
-For multi-replica deployments, configure Redis shared storage. See example `playground/config/shared-storage-redis.yaml` and `playground/docker-compose.yaml`.
+For multi-replica deployments, configure Redis shared storage. Configure Redis shared storage on the gateway in [Connected Mode](https://docs.mulesoft.com/gateway/latest/conn-shared-storage-config) or [Local Mode](https://docs.mulesoft.com/gateway/latest/local-shared-storage-config). See example `playground/config/shared-storage-redis.yaml` (https://github.com/mulesoft/pdk-custom-policy-examples/blob/1.11.0/multi-instance-rate-limiting/playground/config/shared-storage-redis.yaml) and `playground/docker-compose.yaml`.
 
 ## Documentation Reference
 

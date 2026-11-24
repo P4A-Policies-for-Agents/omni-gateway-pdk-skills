@@ -11,6 +11,8 @@ This skill covers how to debug and test custom policies locally using the PDK De
 
 **Important:** The PDK Debugging Playground only supports Omni Gateway running in Local Mode in a Docker container. Even if deploying to Connected Mode or a different platform, always test locally first.
 
+**Windows:** you can run Omni Gateway in Local Mode on Docker in Windows only to develop and test policies; Omni Gateway does not support Windows in production environments.
+
 ## Prerequisites
 
 - **Docker** must be installed and running

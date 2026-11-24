@@ -257,7 +257,11 @@ Omni Gateway buffers the complete body before policy code runs. The connection b
 **per-connection** with a 1 MB default; configure `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`
 (managed Flex Gateway UI: **"Global connection buffer limit"**) for a larger bounded stop-iteration
 input or rewrite output — there is no hard ceiling other than host memory, and 10 MB is a valid
-value. Exceeding the configured limit terminates the request before the filter can complete.
+value. Exceeding the configured limit terminates the request before the filter can complete (the
+request fails with a `500`).
+
+Stop iteration requires Omni Gateway v1.11.4 or later and **does not support streaming** — use the
+streaming states when the body must flow through unbuffered.
 
 ### Enable Stop Iteration in Cargo.toml
 

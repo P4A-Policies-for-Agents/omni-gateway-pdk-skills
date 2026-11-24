@@ -9,6 +9,8 @@ description: Use when writing integration tests for PDK custom policies using Do
 
 This skill covers how to write integration tests for PDK custom policies using the automated testing framework with Docker-based Omni Gateway in Local Mode.
 
+**Windows:** you can run Omni Gateway in Local Mode on Docker in Windows only to develop and test policies; Omni Gateway does not support Windows in production environments.
+
 ## Prerequisites
 
 - Docker must be installed

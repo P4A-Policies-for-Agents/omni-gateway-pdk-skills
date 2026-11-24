@@ -77,6 +77,14 @@ Map from feature name → file(s) under `templates/`. Features with multiple fil
 
 Features spanning multiple files show all the pieces needed — if you use the gRPC example, you need all five files.
 
+## Official example policies (PDK 1.11.0)
+
+The templates above are condensed snippets. The full example projects live in the PDK Custom Policy GitHub repository (https://github.com/mulesoft/pdk-custom-policy-examples, tag `1.11.0`; docs: https://docs.mulesoft.com/pdk/latest/policies-pdk-policy-templates). When a doc page and an example or crate source disagree, the example/crate source wins.
+
+API policy examples (directory names): `block` (IP block via timer and HTTP call), `certs` (connection certificate data), `cors-validation`, `crypto` (third-party crypto library), `data-caching`, `data-storage-stats` (local and Redis shared storage), `dataweave`, `ip-filter`, `json-validation`, `jwt-generation`, `jwt-validation`, `metrics` (periodic send via timer and HTTP call), `oauth-2-token-introspection`, `query` (query parameters), `simple-oauth-2-validation` (HTTP calls), `spike`, `stream-payload` (bodies larger than 1MB), `tls-calls` (HTTPS calls without OS certificates), `websocket`, `xml-validation`.
+
+A2A and MCP examples (under `agent-policies/` on `main`): `a2a-pii-detector-policy`, `a2a-prompt-decorator-policy`, `a2a-support-policy`, `mcp-support-policy`.
+
 ## Guardrails
 
 - The templates are **examples**, not policies themselves. They intentionally omit real business logic.

@@ -39,6 +39,8 @@ Stop-iteration tests (below) also need the feature on `pdk-unit`:
 pdk-unit = { version = "1.11.0", features = ["enable_stop_iteration"] }
 ```
 
+Stop iteration needs Omni Gateway v1.11.4 or later at runtime, does not support streaming, and a body that exceeds `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` ends the request with a `500` (see [[pdk-request-headers-bodies]]).
+
 ### MCP / JSON-RPC handler policies — `enable_stop_iteration` is mandatory
 
 If the policy returns `Flow::Break(response)` from inside a JSON-RPC handler — whether you use a workspace dispatcher framework (handler-per-method) or a hand-rolled MCP/A2A request filter (see [[pdk-mcp]], [[pdk-a2a]]) — you MUST add `enable_stop_iteration` to BOTH `pdk` and `pdk-unit`:
@@ -717,13 +719,16 @@ assert_eq!(upstream_req.body(), b"expected body");
 | `FilterChainBuilder` | Builds a multi-policy `UnitTest`; filters run request-first/response-last in insertion order (PDK 1.10+) |
 | `UnitLogLevel` | Test-host log threshold: `Trace` through `Critical`, or `Disabled` (PDK 1.10+) |
 | `UnitTest` | Main orchestrator. Use `request` for synchronous tests or `request_partial` plus `poll` for finer control |
+| `UnitTestRequest` | In-flight request handle from `request_partial`. `poll()` returns `Poll::Pending` or `Poll::Ready(response)` |
 | `UnitHttpRequest` | HTTP request built with method helpers (`get()`, `post()`, etc.) or `custom()`. Use `with_path`, `with_header`, `with_body` |
 | `UnitHttpResponse` | HTTP response from `new(status_code)`. Exposes `status_code()` and `UnitHttpMessage` trait accessors |
 | `UnitHttpMessage` | Trait for both request and response: `header()`, `headers()`, `body()`, `property()`, `authentication()`, `violation()` |
+| `UnitGrpcRequest` / `UnitGrpcResponse` | gRPC wrappers used by `GrpcBackend` implementations |
 | `TraceBackend` | Wraps any `Backend`, records each call, assert on upstream requests with `next()` |
 | `protobuf_grpc_backend` | Proc-macro that derives `GrpcBackend` from annotated `impl` methods |
 | `Backend` | Trait for HTTP upstream mocks. Implemented for closures and structs |
 | `GrpcBackend` | Trait for gRPC upstream mocks |
+| `StopIterationMode` | Ordering when resuming paused requests: `RequestsThenBody` or `BodyThenRequests`. Needs the `enable_stop_iteration` feature (stable since 1.8); the crate source defines the variants |
 | `UpgradeConnection` | WebSocket handle from `upgrade()` (PDK 1.9+). `response()`, `client()`, `server()` |
 | `UnitFrame` | WebSocket frame: `text(payload, fin)`, `binary(payload, fin)`, `continuation(payload, fin)`, `ping()`, `pong()`, `connection_close()`; inspect with `frame_type()`, `data()` |
 | `UnitFrameType` | Frame-type enum: `Text`, `Binary`, `Continuation`, `Ping`, `Pong`, `ConnectionClose`, `Reserved` |
