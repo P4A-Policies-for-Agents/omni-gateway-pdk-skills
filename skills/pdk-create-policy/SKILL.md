@@ -473,7 +473,7 @@ strip = "debuginfo"
 
 ## Gotchas & Lessons Learned
 
-- **Implementation directory naming**: The CLI names the implementation directory `<policy-name>-flex`, not `<policy-name>-implementation`.
+- **Implementation directory naming**: The CLI names the implementation directory `<policy-name>-flex`, not `<policy-name>-implementation`. The split-model docs page says `-implementation`; its own `implementation_asset_id` example ends in `-flex`, which matches what the CLI generates.
 - **Plugin conflict**: The older `anypoint-cli-pdk-plugin` conflicts with the newer `anypoint-pdk-plugin`. Uninstall the old one before using `--project-mode`.
 - **Child BG publishing**: The CLI defaults to the root org context. To publish to a child BG, switch the CLI context first with `anypoint-cli-v4 conf organization <bg-id>`. The `select-bg.sh` script handles this automatically. Do NOT use the `--organization` flag — it has a CLI bug (TypeError).
 - **Declaring a minimum Flex runtime version**: `[package.metadata.flex] min-version = "X.Y.Z"` in
@@ -485,7 +485,8 @@ strip = "debuginfo"
   test), so keep it accurate — an understated value lets the policy be built against a Flex release
   that lacks the feature.
 - **No `pdk::time` module**: PDK does not expose a time module. Use `std::time::SystemTime` for timestamps (it works in the WASM environment).
-- **Response body as bytes**: `Response::new(status).with_body()` expects `Vec<u8>`, not `&str`. Use `.into_bytes()` on strings.
+- **Response body**: `Response::new(status).with_body(body)` takes `impl Into<Vec<u8>>`, so `&str`,
+  `String` and `Vec<u8>` all work (the official examples pass string literals).
 - **Header names are lowercase**: When reading headers via `handler.header("name")`, always use lowercase header names.
 - **Generated-file upgrades are explicit**: A dependency bump does not add PDK 1.10's automatic
   registration, `TEST` Make parameter, or parameterized Compose image to an older project. Compare

@@ -80,6 +80,11 @@ now routed through the request context rather than being incorrectly delivered t
 handler. Use PDK 1.10 or later for WebSocket or request flows that await a tick and then call an
 HTTP service.
 
+**Calls from a configure-launched timer task work.** The docs say HTTP calls are only possible from
+filters. The official Block example (`mulesoft/pdk-custom-policy-examples`, 1.11.0) makes HTTP calls
+from a timer loop started in `configure` and works. It guards each run with a shared lock and drops
+the response when the lock was lost. See [[pdk-timer]].
+
 ## Fire-and-Forget Calls (PDK 1.11+)
 
 If you drop the pending request without awaiting it (a fire-and-forget call, such as an audit or

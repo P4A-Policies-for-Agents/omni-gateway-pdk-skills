@@ -271,7 +271,6 @@ async fn say_hello() -> anyhow::Result<()> {
         .build();
 
     let flex_config = FlexConfig::builder()
-        .version("1.6.1")
         .hostname("local-flex")
         .config_mounts([
             (POLICY_DIR, "policy"),
@@ -289,6 +288,10 @@ async fn say_hello() -> anyhow::Result<()> {
     Ok(())
 }
 ```
+
+Do not call `.version(...)` on `FlexConfig`. The image tag comes from the `PDK_TEST_FLEX_IMAGE_VERSION`
+environment variable (the official 1.11.0 examples default to `1.13.4`, matching the generated Makefile's
+`FLEX_IMAGE`). A hard-coded `.version("1.6.1")` pins an old image and overrides that variable.
 
 To use a custom Flex Docker image: `.image_name("myrepo/flex-gateway")`.
 
@@ -346,7 +349,6 @@ async fn hello() -> anyhow::Result<()> {
 
     // Configure Flex
     let flex_config = FlexConfig::builder()
-        .version("1.6.1")
         .hostname("local-flex")
         .config_mounts([
             (POLICY_DIR, "policy"),

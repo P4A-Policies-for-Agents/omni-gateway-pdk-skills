@@ -79,7 +79,8 @@ make: *** [install-cargo-anypoint] Error 101
 ```
 
 **Fix:** This occurs when your Rust version is outdated. PDK 1.11.0 requires **Rust 1.97.0 or later**
-(PDK 1.10 required 1.88.0). Update the toolchain and the policy's `rust-version`:
+(PDK 1.10 required 1.88.0). Update the toolchain. The policy's `rust-version` field can stay as it
+is; the official 1.11.0 examples keep `1.88.0`.
 
 ```bash
 rustup update
