@@ -1,6 +1,6 @@
 ---
 name: pdk-upgrade-pdk
-description: Use when upgrading PDK components and generated projects, including pdk, pdk-test, pdk-unit, cargo-anypoint, Rust/WASI, PDK 1.10 APIs and fixes, and Makefile/Compose features that a dependency bump does not add to older projects.
+description: Use when upgrading PDK components and generated projects, including pdk, pdk-test, pdk-unit, cargo-anypoint, Rust/WASI, the PDK 1.11 MSRV 1.97 and resolver 3 change, the 1.11 Api::new consumer-URI argument, PDK 1.10 APIs and fixes, and Makefile/Compose features that a dependency bump does not add to older projects.
 ---
 
 # Skill: Upgrading PDK
@@ -40,9 +40,50 @@ anypoint-cli-v4 plugins:uninstall anypoint-cli-pdk-plugin
 anypoint-cli-v4 plugins:install anypoint-pdk-plugin
 ```
 
-## Upgrading to 1.10.0 (current stable)
+## Upgrading to 1.11.0 (current stable)
 
-PDK 1.10.0 (released August 20 2026) is the current stable release. Upgrade `pdk`, `pdk-test`,
+PDK 1.11.0 is the current stable release. Upgrade `pdk`, `pdk-test`, `pdk-unit`, and `cargo-anypoint`
+together, and raise the policy's `rust-version` to `1.97.0`. The 1.11 crates declare `rust-version =
+"1.97.0"` and `resolver = "3"`; 1.10 declared `1.88.0` and `resolver = "2"`.
+
+Breaking or behavior-changing (check these first):
+
+- **Toolchain and lockfile.** Install Rust 1.97.0 or later and refresh `Cargo.lock` with `cargo update`.
+  If a dependency then fails to build, see [[pdk-troubleshooting]].
+- **`Api` constructor takes a consumer URI.** The `Api::new` constructor used by tests and mocks now takes
+  `consumer_uri: Option<String>` after `version` and before `exchange`. Pass `None` when there is no
+  consumer URL. See [[pdk-metadata]].
+- **Token-introspection path matching.** Both `build_metadata_response*` methods now match any GET whose
+  path contains `/.well-known/oauth-protected-resource`, ignoring the query and allowing a prefix. Tests
+  that asserted a 1.10 non-match, or a trimmed `resource` on the consumer-URL path, need updating. See
+  [[pdk-token-introspection]].
+- **`experimental` aggregate is broader.** `experimental` now also enables `experimental_body_slice_access`
+  and `experimental_datastorage_encryption`. See [[pdk-experimental-feature]].
+
+Additive in 1.11 (no action unless you use them):
+
+- `set_sized_body` on the combined headers-body handler keeps `content-length` correct
+  ([[pdk-request-headers-bodies]]).
+- Experimental body-slice methods (`body_size`, `body_range`, `set_body_range`).
+- Per-policy buffer-limit resolution from `gateway.connectionBufferLimits.global`, then
+  `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES`.
+- Log messages over 30,000 bytes are split into several lines ([[pdk-policy-logging]]).
+- `ApiMetadata.consumer_endpoint` and `ApiMetadata.asset` are available without the `experimental` feature.
+  `asset` was experimental-only in 1.10 ([[pdk-metadata]]).
+- `#[entrypoint_flex_light]` (`pdk::hl`): like `entrypoint_flex`, but it skips the setup when
+  `enable_stop_iteration` is off. It is new in 1.11.
+- Config property names that are Rust keywords get escaped field names ([[pdk-schema-definition]]).
+- Experimental at-rest encryption for remote data stores ([[pdk-data-storage]]).
+- Experimental metrics gained cadence, OTLP event and span APIs ([[pdk-experimental-feature]]).
+- WebSocket flows: when one direction's handler finishes, its plane is unpaused so the remaining frames
+  pass through ([[pdk-websockets]]).
+
+The crate diff does not cover scaffolding. Compare the generated Makefile, Compose file and `AGENTS.md`
+with a freshly generated 1.11 project before assuming a dependency bump is enough.
+
+## Upgrading to 1.10.0
+
+PDK 1.10.0 (released August 20 2026) was the previous stable release. Upgrade `pdk`, `pdk-test`,
 `pdk-unit`, and `cargo-anypoint` together.
 
 Library/API changes included by the dependency upgrade:
@@ -112,7 +153,7 @@ error: Only features sync,macros,io-util,rt,time are supported on wasm.
 [package]
 name = "my_policy"
 version = "1.0.0"
-rust-version = "1.88.0"
+rust-version = "1.97.0"
 edition = "2018"
 resolver = "2"
 ```
@@ -157,11 +198,11 @@ Update the `pdk` dependency and `pdk-test` dev-dependency versions in `Cargo.tom
 
 ```toml
 [dependencies]
-pdk = { version = "1.10.0" }
+pdk = { version = "1.11.0" }
 
 [dev-dependencies]
-pdk-test = { version = "1.10.0" }
-pdk-unit = { version = "1.10.0" }
+pdk-test = { version = "1.11.0" }
+pdk-unit = { version = "1.11.0" }
 ```
 
 **Note:** In versions earlier than 1.6.0, dependencies included `registry = "anypoint"`. When upgrading from pre-1.6.0, remove the `registry = "anypoint"` field since PDK libraries moved to [crates.io](https://crates.io/crates/pdk) in 1.6.0.
@@ -173,7 +214,7 @@ pdk-unit = { version = "1.10.0" }
 
 ```makefile
 install-cargo-anypoint:
-	cargo install cargo-anypoint@1.10.0
+	cargo install cargo-anypoint@1.11.0
 ```
 
 3. Run:
@@ -196,7 +237,7 @@ cargo anypoint --version
 2. Update the `rust-version` field:
 
 ```toml
-rust-version = "1.88.0"
+rust-version = "1.97.0"
 ```
 
 Ensure the Rust version is installed on your device.
@@ -239,6 +280,8 @@ setup: install-cargo-anypoint ## Setup all required tools to build
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-upgrade-pdk.adoc`
-- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1 through 1.10.0)
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-upgrade-pdk.adoc`
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.9.1 through 1.11.0)
+- **Crate source:** `pdk`, `pdk-core`, `pdk-unit` and `cargo-anypoint` 1.11.0 `Cargo.toml`/source, used for the
+  1.11 breaking-change list (`Api::new`, MSRV and resolver, keyword escaping)
+- **Snapshot:** 2026-11-24

@@ -1,6 +1,6 @@
 ---
 name: pdk-troubleshooting
-description: Use when diagnosing PDK toolchain issues such as cargo-generate compilation errors on Mac, Anypoint CLI credential failures, group ID errors during policy creation, 401 authorization errors with outdated Rust, or split-model policy build failures.
+description: Use when diagnosing PDK toolchain issues such as cargo-generate compilation errors on Mac, Anypoint CLI credential failures, group ID errors during policy creation, 401 authorization errors with outdated Rust (PDK 1.11 needs 1.97+), compilation errors from a stale Cargo.lock after a PDK upgrade, rust-lld or duplicate `_initialize` link errors, or split-model policy build failures.
 ---
 
 # Skill: PDK Troubleshooting
@@ -78,11 +78,52 @@ Caused by:
 make: *** [install-cargo-anypoint] Error 101
 ```
 
-**Fix:** This occurs when your Rust version is outdated. Ensure your Rust version meets the PDK requirements:
+**Fix:** This occurs when your Rust version is outdated. PDK 1.11.0 requires **Rust 1.97.0 or later**
+(PDK 1.10 required 1.88.0). Update the toolchain and the policy's `rust-version`:
 
 ```bash
 rustup update
+rustc --version   # must report 1.97.0 or later for PDK 1.11
 ```
+
+If the repo pins a toolchain in `rust-toolchain.toml`, bump `channel` there too. `rustup update` does
+not override a pinned channel.
+
+### Compilation Error After Upgrading PDK
+
+After bumping `pdk`, the build fails inside a transitive dependency (commonly `jwt-simple` pulled by
+`pdk-jwt-lib`) because the existing `Cargo.lock` pins a version incompatible with the new library.
+PDK 1.11.0 also updated third-party dependencies for security advisories, and an old lockfile keeps
+the vulnerable versions.
+
+**Fix:** refresh the lockfile, then rebuild:
+
+```bash
+cargo update                                   # or: cargo update -p jwt-simple --precise <version>
+# alternatively delete Cargo.lock and let Cargo regenerate it
+make build
+```
+
+### Unit Tests Fail to Link on x86_64 Linux (Rust 1.90+)
+
+Since Rust 1.90, `x86_64-unknown-linux-gnu` links with `rust-lld` by default. Unit tests of
+non-PDK `proxy-wasm` policies (for example, ones using `pdk-unit` with the `proxy-wasm-rust-sdk`
+feature) can fail at load time with `symbol lookup error` on unresolved host calls.
+
+**Fix:** opt out of `lld` for the host target in `.cargo/config.toml`:
+
+```toml
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "linker-features=-lld"]
+```
+
+### `duplicate symbol: _initialize` When Building for `wasm32-wasip1`
+
+A rustc newer than the one the project was validated with can clash with `crt1-reactor.o` and fail
+the WASM link with `duplicate symbol: _initialize`.
+
+**Fix:** pin the validated toolchain in `rust-toolchain.toml` (for example `channel = "1.97.0"`) and
+make CI scripts honor the pin instead of forcing `stable`.
 
 ### Error: No such file or directory When Running `make build` (Split Model Policy)
 
@@ -111,3 +152,10 @@ make: *** [build-asset-files] Error 2
 
 - Skill: Debugging Custom Policies with the PDK Debugging Playground (`pdk-debug-local`)
 - Skill: Test PDK Policy Locally (`pdk-test-locally`)
+- Skill: Upgrading PDK (`pdk-upgrade-pdk`)
+
+## Source Ref
+
+- **Docs:** https://docs.mulesoft.com/pdk/latest/policies-pdk-troubleshooting (PDK 1.11)
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.11.0)
+- **Snapshot:** 2026-11-24

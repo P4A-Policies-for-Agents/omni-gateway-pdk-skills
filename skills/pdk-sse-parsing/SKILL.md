@@ -207,4 +207,4 @@ so read them after the drain loop, not at response-headers time.
   PDK docs as of this writing — treat the parsing rules above as the contract.
 - The fail-closed inspecting rewrite and the drain-then-read-properties idiom (2026-11-11) are
   field-derived from MuleSoft's own MCP and LLM policies. `write_chunk` needs the `experimental`
-  Cargo feature in PDK 1.10.0.
+  Cargo feature (still true in PDK 1.11.0).

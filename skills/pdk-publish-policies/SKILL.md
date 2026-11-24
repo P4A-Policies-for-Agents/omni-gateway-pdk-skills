@@ -85,5 +85,5 @@ projects generated with an earlier PDK and then upgraded, even if you update Rus
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-publish-policies.adoc`
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-publish-policies.adoc`
+- **Snapshot:** 2026-11-24

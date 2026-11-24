@@ -105,5 +105,5 @@ async fn response_filter(state: ResponseState) {
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-stop.adoc`
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-stop.adoc`
+- **Snapshot:** 2026-11-24

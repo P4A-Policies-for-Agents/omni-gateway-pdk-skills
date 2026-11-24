@@ -14,7 +14,7 @@ This skill guides the creation of new Omni Gateway custom policies using the PDK
 - **Anypoint CLI v4** (v1.6.14+): `npx anypoint-cli-v4@latest`
 - **PDK Plugin** (v1.7.0+): `anypoint-cli-v4 plugins:install anypoint-pdk-plugin`
   - **Important**: If the older `anypoint-cli-pdk-plugin` is installed, uninstall it first (`anypoint-cli-v4 plugins:uninstall anypoint-cli-pdk-plugin`) — it conflicts with the new plugin and intercepts the `--project-mode` flag.
-- **Rust toolchain**: Rust 1.88.0, with the `wasm32-wasip1` target installed
+- **Rust toolchain**: Rust 1.97.0 or later (PDK 1.11), with the `wasm32-wasip1` target installed
 - **Docker**: required for local playground testing
 - **Anypoint Platform account**: with organization access for publishing
 
@@ -432,7 +432,7 @@ This feature is unavailable to projects generated with an earlier PDK and then u
 [package]
 name = "<policy_name_underscored>"
 version = "1.0.0"
-rust-version = "1.88.0"
+rust-version = "1.97.0"
 edition = "2018"
 resolver = "2"
 
@@ -452,13 +452,13 @@ min-version = "1.11.0"
 # PDK 1.9.1+ gates the JWT and XML Validator libraries behind Cargo features
 # (default = ["jwt", "xml_validator"], both on). To shrink WASM or use the
 # FIPS jwt-fips backend, see the pdk-cargo-features skill.
-pdk = { version = "1.10.0" }
+pdk = { version = "1.11.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 anyhow = "1.0"
 
 [dev-dependencies]
-pdk-test = { version = "1.10.0" }
+pdk-test = { version = "1.11.0" }
 httpmock = "0.6"
 reqwest = "0.11"
 
@@ -499,4 +499,4 @@ strip = "debuginfo"
 - Policy templates/examples: https://docs.mulesoft.com/pdk/latest/policies-pdk-policy-templates
 - Developing custom policies: https://docs.mulesoft.com/pdk/latest/policies-pdk-develop-custom-policies
 - PDK crate: https://crates.io/crates/pdk
-- PDK API docs: https://docs.rs/pdk/1.10.0/pdk/
+- PDK API docs: https://docs.rs/pdk/1.11.0/pdk/

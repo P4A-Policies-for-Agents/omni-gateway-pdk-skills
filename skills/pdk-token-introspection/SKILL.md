@@ -108,6 +108,34 @@ fn request_origin(handler: &dyn HeadersHandler, scheme: &str, authority: &str) -
   path twice (`https://host/api/api`). Also keep a configured trailing slash in that URL as-is,
   because clients compare `resource` exactly.
 
+### Use the Consumer URL Directly (PDK 1.11+)
+
+When you already have the full consumer-facing URL, such as the PDK 1.11 metadata field
+`api_metadata.consumer_endpoint` or an operator-configured URL, use the `_from_uri` variants. They take
+the URL as-is and **never** append the API base path, which removes both the forwarded-header
+reconstruction and the double-base-path trap:
+
+```rust
+// resource_uri e.g. "https://api.example.com/gateway/mcp" (from metadata or config)
+if let Some(response) = protected_resource.build_metadata_response_from_uri(&path, &method, &resource_uri) {
+    return Flow::Break(response); // `resource` is exactly resource_uri, trailing slash preserved
+}
+// 401 challenge: resource_metadata = "<resource_uri without trailing slash>/.well-known/oauth-protected-resource"
+return Flow::Break(protected_resource.unauthorized_response_from_uri(&resource_uri, None));
+```
+
+Fall back to the origin-based methods above only when no consumer URL is available (`consumer_endpoint`
+is `None`). See [[pdk-metadata]].
+
+**Matching changed in PDK 1.11.** Both `build_metadata_response*` methods now match any GET path that
+**contains** `/.well-known/oauth-protected-resource` followed by nothing or `/…`. The query string is
+ignored, and the segment can sit behind a gateway path prefix, so a request without the API base path
+or with `?x=y` now gets the metadata document, where 1.10 required an exact path. The `_from_uri`
+variants keep a trailing slash on the consumer URL in `resource` exactly as given (1.10 stripped it).
+The origin-based builder still trims a trailing slash from the configured base path at build time, so
+only the `_from_uri` path preserves a trailing slash.
+Re-run any test that asserted a 1.10 non-match or a trimmed `resource`.
+
 ## Validate a Token
 
 Use `validate` to send a request to the introspection endpoint:
@@ -159,9 +187,11 @@ contract in [[pdk-http-call]].
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-token-introspection.adoc`
-- **API:** https://docs.rs/pdk/1.10.0/pdk/token_introspection/struct.ProtectedResourceMetadataBuilder.html
-- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-token-introspection.adoc`
+- **API:** https://docs.rs/pdk/1.11.0/pdk/token_introspection/struct.ProtectedResourceMetadataBuilder.html
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0, 1.11.0)
+- **Crate source:** `pdk-token-introspection-lib` 1.11.0 `src/discovery.rs` (`_from_uri` methods and
+  path matching; not yet on the docs page at snapshot time)
+- **Snapshot:** 2026-11-24
 - **Note:** the forwarded-origin, base-path-duplication and status-mapping guidance (2026-11-11) is
   field-derived from fixes in MuleSoft's own OAuth/OpenID policies, not from the docs page.

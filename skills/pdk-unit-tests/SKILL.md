@@ -49,10 +49,10 @@ proxy-wasm = "0.2.5"
 
 # host-side stub replaces proxy-wasm for native test builds; NOT for wasm32
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pdk-proxy-wasm-stub = "1.10.0"
+pdk-proxy-wasm-stub = "1.11.0"
 
 [dev-dependencies]
-pdk-unit = { version = "1.10.0", default-features = false, features = ["proxy-wasm-rust-sdk"] }
+pdk-unit = { version = "1.11.0", default-features = false, features = ["proxy-wasm-rust-sdk"] }
 ```
 
 Import the right crate per target in the policy code, and build tests against the stub:
@@ -106,6 +106,30 @@ let mut tester = UnitTestBuilder::default()
 
 Available levels are `Trace`, `Debug`, `Info`, `Warn`, `Error`, `Critical`, and `Disabled`.
 Messages below the selected level are suppressed; `Disabled` suppresses all test-host logs.
+
+## Set the Consumer Endpoint in Metadata (PDK 1.11+)
+
+Policies that build absolute URLs from `ApiMetadata.consumer_endpoint` (for example, an RFC 9728
+`resource` value) can set it in the test through the `metadata` hook. Set it before the first request:
+
+```rust
+let mut tester = UnitTestBuilder::default()
+    .metadata(|m| m.api_metadata.consumer_endpoint = Some("https://api.example.com/orders/".into()))
+    .with_config(r#"{}"#)
+    .with_entrypoint(crate::configure);
+```
+
+Test both branches of a fallback: one case with `consumer_endpoint` set, and one with it unset, so the
+policy's "explicit config wins, metadata is the fallback, blank means absent" logic is covered. See
+[[pdk-metadata]].
+
+## Mock an Encrypted Data Store (PDK 1.11+)
+
+When the policy's data store is encrypted (`experimental_datastorage_encryption`), the built-in
+object-store backend mirrors Flex: an upsert with `"encrypted": true` marks the store as sealed, and an
+upsert without the flag clears it. An upsert of an existing store updates its metadata and keeps its
+values. Test the flag and the failure paths your policy handles, for example an `Undecryptable` read
+after a store is switched from plaintext to encrypted. See [[pdk-data-storage]].
 
 ## Repo Conventions
 
@@ -689,7 +713,9 @@ assert_eq!(upstream_req.body(), b"expected body");
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-unit.adoc`
-- **API:** https://docs.rs/pdk-unit/1.10.0/pdk_unit/struct.FilterChainBuilder.html
-- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0)
-- **Snapshot:** 2026-08-24
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-unit.adoc`
+- **API:** https://docs.rs/pdk-unit/1.11.0/pdk_unit/struct.FilterChainBuilder.html
+- **Release notes:** https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes (1.10.0, 1.11.0)
+- **Crate source:** `pdk-unit` 1.11.0 `src/tester/unit_test.rs` (metadata `consumer_endpoint`) and
+  `src/backends/os.rs` (encrypted-store mock)
+- **Snapshot:** 2026-11-24

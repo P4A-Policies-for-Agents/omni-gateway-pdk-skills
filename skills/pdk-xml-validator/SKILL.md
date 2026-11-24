@@ -94,5 +94,5 @@ If `validate_stream` returns `Err`, reject the payload. The XML may be malformed
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
-- **File:** `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-xml-validator.adoc`
-- **Snapshot:** 2026-08-24 (includes 1.9.1 `xml_validator` Cargo feature)
+- **File:** `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-xml-validator.adoc`
+- **Snapshot:** 2026-11-24 (includes 1.9.1 `xml_validator` Cargo feature)

@@ -1,6 +1,6 @@
 ---
 name: pdk-request-headers-bodies
-description: Use when reading or writing request/response headers and bodies in PDK policies, covering HeadersHandler, BodyHandler, streaming, configured Omni/Envoy buffer limits, safe rewrite growth in PDK 1.10, WebSocket frames, and stop iteration via into_headers_body_state — including response-filter hangs with combined state.
+description: Use when reading or writing request/response headers and bodies in PDK policies, covering HeadersHandler, BodyHandler, streaming, configured Omni/Envoy buffer limits, safe rewrite growth, stale content-length after a body rewrite (PDK 1.11 set_sized_body), experimental body_range/set_body_range slices, WebSocket frames, and stop iteration via into_headers_body_state — including response-filter hangs with combined state.
 ---
 
 # Skill: Reading and Writing Request Headers and Bodies
@@ -136,6 +136,12 @@ PDK version and gateway compatibility matter when `set_body` reaches or exceeds 
   `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` limit when validating replacement writes and
   returns an error for a write at or above that limit instead of taking the panic path. Replacement
   bodies must be strictly smaller than the configured limit.
+- PDK 1.11 resolves that limit **per policy instance** at configure time. It first reads the
+  gateway's connection-buffer setting from the policy context (`gateway.connectionBufferLimits.global`),
+  then falls back to the `FLEX_DOWNSTREAM_CONNECTION_BUFFER_LIMIT_BYTES` property. An invalid or missing
+  value means PDK applies no limit of its own. `BodyError::ExceededBodySize` now reports the maximum in
+  its message (`Exceeded body size: N. Max body size: Some(M)`), so log the error to find the
+  effective limit.
 - Raising the connection buffer increases the finite supported size; it does not make rewrites
   unbounded. A policy cannot write more than the physical buffer or generate arbitrary extra body
   events.
@@ -157,11 +163,44 @@ pub trait BodyHandler {
 }
 ```
 
-**Important:** Cannot access headers and body at the same time. Read headers first, save values, then read body. Complete all header modifications before reading body. Remove `content-length` header before modifying body.
+**Important:** Cannot access headers and body at the same time. Read headers first, save values, then read body. Complete all header modifications before reading body. On this split flow, remove the `content-length` header in the headers phase before modifying the body, because `set_body` never updates it. With the combined state (Approach 2), use `set_sized_body` instead (PDK 1.11+).
 
 `BodyHandler::set_body()` may fail with:
 - `BodyError::BodyNotSent`: No body in current HTTP Flow (e.g., GET request)
 - `BodyError::ExceededBodySize`: New body is at or above the maximum buffer size
+
+### Experimental: Read or Write a Body Slice (PDK 1.11+)
+
+The `experimental_body_slice_access` Cargo feature (also part of the aggregate `experimental`)
+adds three default methods to `BodyHandler`, available on both the body state and the combined
+headers-body state:
+
+```rust
+fn body_size(&self) -> Result<usize, BodyRangeError>;
+fn body_range(&self, start: usize, end: usize) -> Result<Vec<u8>, BodyRangeError>; // end exclusive
+fn set_body_range(&self, start: usize, size: usize, value: &[u8]) -> Result<(), BodyRangeError>;
+```
+
+```rust
+use pdk::hl::{BodyHandler, BodyRangeError};
+
+fn sniff_and_append(handler: &impl BodyHandler) -> Result<(), BodyRangeError> {
+    let size = handler.body_size()?;
+    let head = handler.body_range(0, size.min(1024))?;   // peek at the first 1 KiB
+    if head.starts_with(b"{") {
+        handler.set_body_range(size, 0, b"\n")?;          // append at the end
+    }
+    Ok(())
+}
+```
+
+- The host only writes at the **start or end** of the body. `set_body_range` accepts `start == 0`
+  (replace the first `size` bytes; `size == 0` prepends) or `start == body_size` (append). Any other
+  `start` returns `BodyRangeError::UnsupportedBodyRangeStart`.
+- `set_body_range` does **not** update `content-length`. Remove the header in the headers phase,
+  or set it yourself on the combined state.
+- Size limits still apply: an oversized result returns `BodyRangeError::Body(BodyError::ExceededBodySize)`.
+- `BodyRangeError` is `#[non_exhaustive]`, so keep a wildcard arm when you match on it.
 
 ### Streaming Bodies
 
@@ -216,7 +255,7 @@ value. Exceeding the configured limit terminates the request before the filter c
 
 ```toml
 [dependencies]
-pdk = { version = "1.10.0", features = ["enable_stop_iteration"] }
+pdk = { version = "1.11.0", features = ["enable_stop_iteration"] }
 ```
 
 ### Read and Write Headers and Body Together
@@ -239,6 +278,28 @@ async fn request_filter(request_state: RequestState) -> Flow<()> {
     Flow::Continue(())
 }
 ```
+
+### Rewrite the Body and Keep `content-length` Correct (PDK 1.11+)
+
+When a rewrite changes the body length, call `set_sized_body` on the combined handler. It calls
+`set_body` and then sets `content-length` to the new length, so you don't have to remove the header
+before rewriting. Removing it would also tempt you to drop unrelated headers such as `content-type`.
+
+```rust
+async fn request_filter(request_state: RequestState) -> Flow<()> {
+    let state = request_state.into_headers_body_state().await;
+    let new_body = rewrite(&state.handler().body());
+    if let Err(e) = state.handler().set_sized_body(&new_body) {
+        logger::warn!("body rewrite failed: {e}");   // BodyNotSent or ExceededBodySize
+    }
+    Flow::Continue(())
+}
+```
+
+`set_sized_body` is a method of `HeadersBodyHandler`, so it exists **only** on the combined state.
+On the split event flow, keep removing `content-length` in the headers phase. If the rewrite also
+changes the encoding (for example, plain bytes replacing a gzip body), remove `content-encoding`
+yourself; `set_sized_body` touches only `content-length`.
 
 ### Handle Requests Without Body
 
@@ -309,13 +370,15 @@ one that hangs. Design response filters to be body-only on the affected runtimes
 - Source (stop iteration): https://docs.mulesoft.com/pdk/latest/policies-pdk-configure-features-headers-stop
 - Examples: Stream Payload Policy, Stop Iteration Example Policy
 - Release and payload-limit context: https://docs.mulesoft.com/release-notes/pdk/pdk-release-notes
+- `set_sized_body`, body-slice methods and buffer-limit resolution verified against the published
+  `pdk-classy`/`pdk-core` 1.11.0 crate sources (the docs pages had not described them as of the snapshot).
 
 ## Source Ref
 
 - **Repo:** `mulesoft/docs-gateway`
 - **Branch:** `latest`
 - **Files:**
-  - `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-headers.adoc`
-  - `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-headers-event.adoc`
-  - `pdk/1.10/modules/ROOT/pages/policies-pdk-configure-features-headers-stop.adoc`
-- **Snapshot:** 2026-08-24
+  - `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-headers.adoc`
+  - `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-headers-event.adoc`
+  - `pdk/1.11/modules/ROOT/pages/policies-pdk-configure-features-headers-stop.adoc`
+- **Snapshot:** 2026-11-24
